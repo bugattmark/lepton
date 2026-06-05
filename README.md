@@ -1,6 +1,22 @@
-# WA Connect — multi-tenant WhatsApp connector
+# WA Connect — multi-tenant WhatsApp outbound
 
-A single always-on Node service: black-&-white landing page, secure multi-tenant auth, and a dashboard where each user **connects/disconnects their own WhatsApp** (QR linked-device via Baileys), sends, and receives. Every account is isolated; every message is logged per-tenant.
+A single always-on Node service: black-&-white landing, secure multi-tenant auth, and a
+dashboard to run **AI-assisted WhatsApp outbound** safely. Every account is isolated.
+
+## What it does
+- **Multiple numbers per tenant** — mix **private** (Baileys / QR linked-device) and
+  **official** (WhatsApp Cloud API) accounts.
+- **Audience from Attio** — connect with an API key, pick any **object** + **list**, and
+  **map** which attribute is the phone / name / personalization vars (no schema assumptions).
+- **Campaigns** — message template with `{{var}}` placeholders, bound to a number.
+- **Send engine (the safety core)** — per number: random delays, hourly/daily caps,
+  warm-up ramp (tied to number age), send window, rest breaks, pause-on-reply, opt-out on
+  STOP. All knobs live in reusable **send-profiles** you assign to numbers/campaigns.
+- **AI-personalized openers** — Claude rewrites the opener per contact from a steering
+  prompt + Attio fields + **websites it reads** (from a URL field you map). Needs `ANTHROPIC_API_KEY`.
+- **Follow-up sequences** — auto step-2 if no reply in N days.
+- **Attio write-back** — logs messaged / replied / opted-out as notes (toggle).
+- **MCP server** — drive everything from Claude Code (see [MCP.md](MCP.md)).
 
 > **Why one always-on server (not Vercel / Cloudflare Workers):** Baileys holds a live socket to WhatsApp open 24/7 per tenant. Serverless platforms kill code between requests, so the connection would drop. This must run on an always-on host (Railway / Render / Fly).
 
@@ -14,11 +30,18 @@ A single always-on Node service: black-&-white landing page, secure multi-tenant
 ## Layout
 ```
 src/
-  db.ts        SQLite schema (tenants, sessions, messages)
-  auth.ts      password hashing + tenant + session helpers
-  sessions.ts  multi-tenant Baileys session manager (1 socket/tenant)
-  views.ts     B&W landing / auth / dashboard HTML
+  db.ts        SQLite schema (tenants, accounts, send_profiles, contacts, campaigns, …)
+  auth.ts      password hashing + sessions + API tokens
+  sessions.ts  Baileys manager (1 socket per ACCOUNT) + inbound reply/opt-out handling
+  cloud.ts     official WhatsApp Cloud API transport
+  accounts.ts  account CRUD + unified send() dispatch (baileys | cloud)
+  attio.ts     Attio connector (objects, attributes, lists, mapped pull, note write-back)
+  ai.ts        Claude opener personalization + website research
+  engine.ts    per-account send engine (pacing, caps, warm-up, follow-ups, AI)
+  campaigns.ts audience + campaign + send-profile persistence
+  views.ts     B&W landing / auth / dashboard
   server.ts    Hono routes + security middleware
+  mcp.ts       MCP server for Claude Code (thin REST client)
 Dockerfile     one-image deploy
 ```
 

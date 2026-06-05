@@ -55,3 +55,18 @@ export function getSessionTenant(token: string | undefined): string | null {
 export function deleteSession(token: string | undefined): void {
   if (token) db.prepare('DELETE FROM sessions WHERE token = ?').run(token)
 }
+
+// --- API token (for the MCP server / programmatic access) ---
+export function ensureApiToken(tenantId: string): string {
+  const row = db.prepare('SELECT api_token FROM tenants WHERE id = ?').get(tenantId) as { api_token: string | null } | undefined
+  if (row?.api_token) return row.api_token
+  const token = 'wa_' + randomBytes(24).toString('hex')
+  db.prepare('UPDATE tenants SET api_token = ? WHERE id = ?').run(token, tenantId)
+  return token
+}
+
+export function getTenantByApiToken(token: string | undefined): string | null {
+  if (!token) return null
+  const row = db.prepare('SELECT id FROM tenants WHERE api_token = ?').get(token) as { id: string } | undefined
+  return row?.id ?? null
+}
