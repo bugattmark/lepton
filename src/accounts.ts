@@ -114,6 +114,16 @@ export function isConnected(id: string): boolean {
   return status(id).status === 'connected'
 }
 
+export function accountType(id: string): 'baileys' | 'cloud' | undefined {
+  return row(id)?.type
+}
+
+// Is a number on WhatsApp? Only meaningful for Baileys (cloud can't query) — null = unknown.
+export async function checkOnWhatsApp(accountId: string, phone: string): Promise<boolean | null> {
+  if (accountType(accountId) !== 'baileys') return null
+  return baileys.isOnWhatsApp(accountId, phone)
+}
+
 // --- the one send the engine calls ---
 export interface SendOpts {
   cloudTemplate?: string | null

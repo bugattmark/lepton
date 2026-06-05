@@ -147,6 +147,30 @@ function writeback(tenantId: string, contactId: number, note: string): void {
   void import('./campaigns.ts').then((m) => m.writebackNote(tenantId, contactId, note)).catch(() => {})
 }
 
+// Record a successful send (local 10-day suppression stamp + optional Attio date write-back).
+function recordSend(tenantId: string, contactId: number): void {
+  void import('./campaigns.ts').then((m) => m.markMessaged(tenantId, contactId)).catch(() => {})
+}
+
+// Is this contact reachable on WhatsApp? Cached on the contact; only Baileys can check
+// (cloud/unknown → null, which we treat as "send anyway, don't block").
+async function ensureRegistered(
+  tenantId: string,
+  contactId: number,
+  accountId: string,
+  phone: string,
+): Promise<boolean | null> {
+  const row = db.prepare('SELECT wa_registered FROM contacts WHERE id = ?').get(contactId) as
+    | { wa_registered: number | null }
+    | undefined
+  if (row?.wa_registered === 0) return false
+  if (row?.wa_registered === 1) return true
+  const reg = await accounts.checkOnWhatsApp(accountId, phone)
+  if (reg === null) return null
+  void import('./campaigns.ts').then((m) => m.cacheWhatsappRegistered(tenantId, contactId, reg)).catch(() => {})
+  return reg
+}
+
 // Advance a lead one or more non-sending blocks; perform at most one send per call.
 // Returns the send config used (so the runner can apply min/max gap), or null if no send happened.
 async function stepLead(camp: CampaignRow, seq: Sequence, lead: Lead): Promise<SendData | null | 'disconnected'> {
@@ -185,9 +209,23 @@ async function stepLead(camp: CampaignRow, seq: Sequence, lead: Lead): Promise<S
 
     // node.type === 'send'
     const send = { ...DEFAULT_SEND, ...(asSend(node) ?? {}) }
+    const accountId = (lead as LeadWithAccount).account_id ?? ''
+
+    // is-on-WhatsApp gate (first contact only — a mid-sequence lead already passed it)
+    if (lead.status === 'pending') {
+      const reg = await ensureRegistered(camp.tenant_id, lead.contactId, accountId, lead.phone)
+      if (reg === false) {
+        db.prepare(`UPDATE campaign_contacts SET status = 'skipped', error = ? WHERE id = ?`).run(
+          'not on WhatsApp',
+          lead.ccId,
+        )
+        return null
+      }
+    }
+
     const text = await composeSend(camp, send, lead)
     try {
-      const wamid = await accounts.send(lead.account_id ?? '', lead.phone, text, {
+      const wamid = await accounts.send(accountId, lead.phone, text, {
         cloudTemplate: camp.cloud_template,
         cloudLang: camp.cloud_lang,
         cloudVars: [text],
@@ -198,6 +236,7 @@ async function stepLead(camp: CampaignRow, seq: Sequence, lead: Lead): Promise<S
         `UPDATE campaign_contacts SET status = 'sent', node_id = ?, next_due_at = NULL,
            sent_at = COALESCE(sent_at, ?), wamid = ? WHERE id = ?`,
       ).run(next, Date.now(), wamid ?? '', lead.ccId)
+      recordSend(camp.tenant_id, lead.contactId)
       writeback(camp.tenant_id, lead.contactId, firstTime ? 'Messaged via WhatsApp' : 'Followed up via WhatsApp')
       return send
     } catch (e) {

@@ -39,6 +39,61 @@ export function writebackNote(tenantId: string, contactId: number, text: string)
   )
 }
 
+// --- 10-day suppression (don't cold-contact someone messaged within the window) ---
+export const SUPPRESS_DAYS = 10
+const DAY_MS = 86_400_000
+
+// Drop contact ids messaged within the suppression window (local record of our own sends).
+export function filterSuppressed(tenantId: string, ids: number[]): number[] {
+  if (!ids.length) return ids
+  const cutoff = Date.now() - SUPPRESS_DAYS * DAY_MS
+  const stmt = db.prepare('SELECT last_messaged_at FROM contacts WHERE id = ? AND tenant_id = ?')
+  return ids.filter((id) => {
+    const r = stmt.get(id, tenantId) as { last_messaged_at: number | null } | undefined
+    return !r?.last_messaged_at || r.last_messaged_at < cutoff
+  })
+}
+
+// Cache of the per-object "last WhatsApp contact" date attribute slug (write-back target).
+const waSlugCache = new Map<string, string | null>()
+async function whatsappDateSlugFor(key: string, object: string): Promise<string | null> {
+  if (waSlugCache.has(object)) return waSlugCache.get(object) ?? null
+  const a = await import('./attio.ts')
+  const slug = a.whatsappDateSlug(await a.listObjectAttributes(key, object)) ?? null
+  waSlugCache.set(object, slug)
+  return slug
+}
+
+// Record a successful send: stamp last_messaged_at locally and (if enabled) write today's
+// date onto the contact's Attio last-WhatsApp-contact attribute for cross-tool suppression.
+export function markMessaged(tenantId: string, contactId: number): void {
+  db.prepare('UPDATE contacts SET last_messaged_at = ? WHERE id = ? AND tenant_id = ?').run(Date.now(), contactId, tenantId)
+  if (!getWriteback(tenantId)) return
+  const key = getAttioKey(tenantId)
+  if (!key) return
+  const c = db
+    .prepare('SELECT attio_record_id, attio_object FROM contacts WHERE id = ? AND tenant_id = ?')
+    .get(contactId, tenantId) as { attio_record_id: string | null; attio_object: string | null } | undefined
+  if (!c?.attio_record_id) return
+  const object = c.attio_object ?? 'people'
+  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+  void whatsappDateSlugFor(key, object)
+    .then((slug) => {
+      if (slug) return import('./attio.ts').then((a) => a.writeDateAttr(key, object, c.attio_record_id as string, slug, today))
+    })
+    .catch(() => {})
+}
+
+// Cache the is-on-WhatsApp result so we only query Baileys once per contact.
+export function cacheWhatsappRegistered(tenantId: string, contactId: number, registered: boolean): void {
+  db.prepare('UPDATE contacts SET wa_registered = ?, wa_checked_at = ? WHERE id = ? AND tenant_id = ?').run(
+    registered ? 1 : 0,
+    Date.now(),
+    contactId,
+    tenantId,
+  )
+}
+
 export function contactByPhone(tenantId: string, phone: string): { id: number } | undefined {
   return db.prepare('SELECT id FROM contacts WHERE tenant_id = ? AND phone = ?').get(tenantId, phone) as
     | { id: number }
@@ -270,6 +325,7 @@ export interface AttioListConfig {
   object: string
   listId?: string
   mapping: import('./attio.ts').AttioMapping
+  filter?: import('./attio.ts').AttioFilterConfig
 }
 export interface ListSummary {
   id: number
@@ -318,7 +374,13 @@ export async function fetchListContacts(tenantId: string, listId: number): Promi
   const key = getAttioKey(tenantId)
   if (!key) return []
   const attio = await import('./attio.ts')
-  const pull = await attio.pullContacts(key, { object: cfg.object, listId: cfg.listId || undefined, mapping: cfg.mapping })
+  const pull = await attio.pullContacts(key, {
+    object: cfg.object,
+    listId: cfg.listId || undefined,
+    mapping: cfg.mapping,
+    filter: cfg.filter,
+    suppressDays: SUPPRESS_DAYS,
+  })
   return importAttioContacts(tenantId, pull.contacts, cfg.object)
 }
 
@@ -339,7 +401,13 @@ export async function previewListContacts(tenantId: string, id: number): Promise
   const key = getAttioKey(tenantId)
   if (!key) return []
   const attio = await import('./attio.ts')
-  const pull = await attio.pullContacts(key, { object: cfg.object, listId: cfg.listId || undefined, mapping: cfg.mapping })
+  const pull = await attio.pullContacts(key, {
+    object: cfg.object,
+    listId: cfg.listId || undefined,
+    mapping: cfg.mapping,
+    filter: cfg.filter,
+    suppressDays: SUPPRESS_DAYS,
+  })
   return pull.contacts.map((c) => map({ name: c.name, phone: c.phone as string, vars: c.vars }))
 }
 
@@ -442,6 +510,8 @@ export function enrollContacts(tenantId: string, campaignId: number, contactIds:
   const accts = getCampaignAccounts(campaignId)
   const seq = parseSequence(c.sequence) ?? fallbackSequence(c.template)
   const start = firstNode(seq)
+  // 10-day suppression: skip contacts we've cold-messaged within the window
+  contactIds = filterSuppressed(tenantId, contactIds)
   // continue round-robin from however many are already assigned
   let rr = (db.prepare('SELECT COUNT(*) n FROM campaign_contacts WHERE campaign_id = ?').get(campaignId) as { n: number }).n
   const ins = db.prepare(

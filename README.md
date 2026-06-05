@@ -6,16 +6,21 @@ dashboard to run **AI-assisted WhatsApp outbound** safely. Every account is isol
 ## What it does
 - **Multiple numbers per tenant** — mix **private** (Baileys / QR linked-device) and
   **official** (WhatsApp Cloud API) accounts.
-- **Audience from Attio** — connect with an API key, pick any **object** + **list**, and
-  **map** which attribute is the phone / name / personalization vars (no schema assumptions).
+- **Audience from Attio** — connect with an API key, pick any **object** + **list**. The
+  column mapping (phone / name / email / IG / link / vars) is **auto-detected** from the
+  object's attributes — adjust any field if needed. Optional **server-side filters**
+  (preferred-channel, has-email) narrow the pull before it ever leaves Attio.
 - **Campaigns** — message template with `{{var}}` placeholders, bound to a number.
 - **Send engine (the safety core)** — per number: random delays, hourly/daily caps,
   warm-up ramp (tied to number age), send window, rest breaks, pause-on-reply, opt-out on
-  STOP. All knobs live in reusable **send-profiles** you assign to numbers/campaigns.
+  STOP. Cold contacts are gated by an **is-on-WhatsApp check** (Baileys) and a **10-day
+  suppression window** so no one is re-messaged too soon. All knobs live in reusable
+  **send-profiles** you assign to numbers/campaigns.
 - **AI-personalized openers** — Claude rewrites the opener per contact from a steering
   prompt + Attio fields + **websites it reads** (from a URL field you map). Needs `ANTHROPIC_API_KEY`.
 - **Follow-up sequences** — auto step-2 if no reply in N days.
-- **Attio write-back** — logs messaged / replied / opted-out as notes (toggle).
+- **Attio write-back** — logs messaged / replied / opted-out as notes, and stamps the
+  contact's last-WhatsApp-contact date (feeds the 10-day suppression) (toggle).
 - **MCP server** — drive everything from Claude Code (see [MCP.md](MCP.md)).
 
 > **Why one always-on server (not Vercel / Cloudflare Workers):** Baileys holds a live socket to WhatsApp open 24/7 per tenant. Serverless platforms kill code between requests, so the connection would drop. This must run on an always-on host (Railway / Render / Fly).
