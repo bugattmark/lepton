@@ -8,6 +8,7 @@ import type { AccountRow } from './db.ts'
 import * as baileys from './sessions.ts'
 import { cloudSendText, cloudSendTemplate, cloudVerify, type CloudConfig } from './cloud.ts'
 import { enc, dec } from './secret.ts'
+import { getPolicy, warmupDay, dailyCapNow, type SendPolicy } from './policy.ts'
 
 const row = (id: string) => db.prepare('SELECT * FROM accounts WHERE id = ?').get(id) as AccountRow | undefined
 
@@ -25,12 +26,29 @@ export interface AccountView {
   status: string
   hasQr: boolean
   jid: string | null
+  policy: SendPolicy
+  warmupDay: number
+  dailyCapToday: number
+  sentToday: number
+}
+
+const startOfToday = (): number => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
 }
 
 export function listAccounts(tenantId: string): AccountView[] {
   const rows = db.prepare('SELECT * FROM accounts WHERE tenant_id = ? ORDER BY created_at').all(tenantId) as AccountRow[]
   return rows.map((a) => {
-    const base = { id: a.id, type: a.type, label: a.label, profile_id: a.profile_id, created_at: a.created_at }
+    const pol = getPolicy(a.id)
+    const sent = (db
+      .prepare(`SELECT COUNT(*) n FROM messages WHERE account_id = ? AND direction = 'out' AND created_at >= ?`)
+      .get(a.id, startOfToday()) as { n: number }).n
+    const base = {
+      id: a.id, type: a.type, label: a.label, profile_id: a.profile_id, created_at: a.created_at,
+      policy: pol, warmupDay: warmupDay(pol), dailyCapToday: dailyCapNow(pol), sentToday: sent,
+    }
     if (a.type === 'baileys') {
       const s = baileys.getStatus(a.id)
       return { ...base, status: s.status, hasQr: s.hasQr, jid: s.jid }

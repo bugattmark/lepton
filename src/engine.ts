@@ -9,6 +9,7 @@
 import { db } from './db.ts'
 import type { CampaignRow } from './db.ts'
 import * as accounts from './accounts.ts'
+import { getPolicy, dailyCapNow, inWindow, gaussGap } from './policy.ts'
 import { personalizeOpener } from './ai.ts'
 import {
   type Sequence,
@@ -42,9 +43,33 @@ const sentSince = (accountId: string, since: number): number =>
     .prepare(`SELECT COUNT(*) n FROM messages WHERE account_id = ? AND direction = 'out' AND created_at >= ?`)
     .get(accountId, since) as { n: number }).n
 
+const startOfToday = (): number => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+const sentToday = (accountId: string): number => sentSince(accountId, startOfToday())
+
 // --- template rendering ---
+// Spintax: pick one option from each {a|b|c} group so every send is textually unique
+// (identical text across a batch is a top WhatsApp spam-fingerprint). Resolves innermost
+// groups first so nesting like {hey|hi|{yo|sup}} works. Runs AFTER {{var}} substitution,
+// and only touches single-brace groups that contain a pipe — {{vars}} are never affected.
+export function spin(text: string): string {
+  const re = /\{([^{}]*\|[^{}]*)\}/
+  let out = text
+  for (let guard = 0; guard < 50 && re.test(out); guard++) {
+    out = out.replace(re, (_, group: string) => {
+      const opts = group.split('|')
+      return opts[Math.floor(Math.random() * opts.length)]
+    })
+  }
+  return out
+}
+
 export function render(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{\{\s*([\w]+)\s*\}\}/g, (_, k: string) => vars[k] ?? '').trim()
+  const filled = template.replace(/\{\{\s*([\w]+)\s*\}\}/g, (_, k: string) => vars[k] ?? '')
+  return spin(filled).trim()
 }
 
 function varsForLead(l: Lead): Record<string, string> {
@@ -245,9 +270,24 @@ async function run(accountId: string): Promise<void> {
       .prepare('SELECT account_id FROM campaign_contacts WHERE id = ?')
       .get(lead.ccId) as { account_id: string | null }).account_id ?? accountId
 
-    // gate sends on this account's hourly cap (peek the node about to fire)
+    // gate sends on this number's policy: send window (tier 4), warmup/daily cap (tiers 1+2),
+    // then per-hour velocity cap. Park the lead and retry rather than dropping it.
     const cur = nodeById(seq, lead.node_id ?? firstNode(seq))
     if (cur?.type === 'send') {
+      const pol = getPolicy(accountId)
+      // outside the daytime window → hold until it likely reopens
+      if (!inWindow(pol)) {
+        db.prepare('UPDATE campaign_contacts SET next_due_at = ? WHERE id = ?').run(Date.now() + 15 * 60_000, lead.ccId)
+        await sleepUntil(15 * 60_000, () => runners.has(accountId))
+        continue
+      }
+      // warmup ramp / hard daily cap reached → hold until tomorrow
+      if (sentToday(accountId) >= dailyCapNow(pol)) {
+        db.prepare('UPDATE campaign_contacts SET next_due_at = ? WHERE id = ?').run(Date.now() + 30 * 60_000, lead.ccId)
+        await sleepUntil(30 * 60_000, () => runners.has(accountId))
+        continue
+      }
+      // per-hour velocity cap (the Send block's knob)
       const cap = (asSend(cur) ?? DEFAULT_SEND).hourlyCap
       if (sentSince(accountId, Date.now() - 3_600_000) >= cap) {
         db.prepare('UPDATE campaign_contacts SET next_due_at = ? WHERE id = ?').run(Date.now() + 60_000, lead.ccId)
@@ -260,8 +300,8 @@ async function run(accountId: string): Promise<void> {
     if (result === 'disconnected') return
     const keepGoing = () => campaignById(camp.id)?.status === 'running' && runners.has(accountId)
     if (result) {
-      // a message went out — space the next send
-      await sleepUntil(rand(result.minGap, result.maxGap) * 1000, keepGoing)
+      // a message went out — space the next send with human-like (Gaussian) jitter
+      await sleepUntil(gaussGap(result.minGap, result.maxGap) * 1000, keepGoing)
     } else {
       await sleepUntil(800, keepGoing) // non-send step; brief breather to avoid a busy loop
     }

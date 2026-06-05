@@ -17,6 +17,7 @@ import {
 import * as acct from './accounts.ts'
 import * as attio from './attio.ts'
 import * as camp from './campaigns.ts'
+import * as pol from './policy.ts'
 import { startCampaign, pauseCampaign, campaignAccountIds } from './engine.ts'
 import { render } from './engine.ts'
 import { parseSequence, fallbackSequence, asSend, firstNode, type Sequence } from './sequence.ts'
@@ -180,6 +181,20 @@ app.put('/api/accounts/:id/profile', apiAuth, async (c) => {
   const { profileId } = (await c.req.json()) as { profileId?: number | null }
   acct.setProfile(c.get('tenantId'), c.req.param('id'), profileId ?? null)
   return c.json({ ok: true })
+})
+
+// Per-number send policy: warmup (tier 1), distribution weight + daily cap (tier 2), send window (tier 4).
+app.put('/api/accounts/:id/policy', apiAuth, async (c) => {
+  if (!ownsAccount(c)) return c.json({ ok: false, error: 'not found' }, 404)
+  const body = (await c.req.json()) as Partial<import('./policy.ts').SendPolicy>
+  const patch: Partial<import('./policy.ts').SendPolicy> = {}
+  if (typeof body.warmupEnabled === 'boolean') patch.warmupEnabled = body.warmupEnabled
+  if (Number.isFinite(body.weight)) patch.weight = Math.max(1, Math.min(20, Math.round(body.weight as number)))
+  if (Number.isFinite(body.dailyCap)) patch.dailyCap = Math.max(1, Math.min(5000, Math.round(body.dailyCap as number)))
+  if (Number.isFinite(body.windowStart)) patch.windowStart = Math.max(0, Math.min(23, Math.round(body.windowStart as number)))
+  if (Number.isFinite(body.windowEnd)) patch.windowEnd = Math.max(0, Math.min(24, Math.round(body.windowEnd as number)))
+  const policy = pol.setPolicy(c.req.param('id'), patch)
+  return c.json({ ok: true, policy })
 })
 
 const ownsAccount = (c: import('hono').Context<{ Variables: { tenantId: string } }>) =>

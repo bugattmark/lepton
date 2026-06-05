@@ -4,6 +4,7 @@ import type { CampaignRow, ContactRow, SendProfileRow, LeadListRow } from './db.
 import type { PulledContact } from './attio.ts'
 import { enc, dec } from './secret.ts'
 import { parseSequence, fallbackSequence, firstNode, nodeById, outgoing, type Sequence } from './sequence.ts'
+import { getPolicy } from './policy.ts'
 
 // --- Attio key (per tenant) — encrypted at rest ---
 export function saveAttioKey(tenantId: string, key: string): void {
@@ -435,11 +436,22 @@ export function getCampaignAccounts(campaignId: number): string[] {
   }[]).map((r) => r.account_id)
 }
 
-// --- enrolling leads into a campaign (with round-robin account assignment) ---
+// Expand the account set into a weighted rotation list, e.g. weights {A:3, B:1} → [A,A,A,B].
+// Higher weight = a larger share of leads (tier 2 distribution control).
+function weightedRotation(accts: string[]): string[] {
+  const out: string[] = []
+  for (const a of accts) {
+    const w = Math.max(1, Math.round(getPolicy(a).weight || 1))
+    for (let i = 0; i < w; i++) out.push(a)
+  }
+  return out.length ? out : accts
+}
+
+// --- enrolling leads into a campaign (with weighted round-robin account assignment) ---
 export function enrollContacts(tenantId: string, campaignId: number, contactIds: number[]): { enrolled: number } {
   const c = getCampaign(tenantId, campaignId)
   if (!c) throw new Error('not found')
-  const accts = getCampaignAccounts(campaignId)
+  const accts = weightedRotation(getCampaignAccounts(campaignId))
   const seq = parseSequence(c.sequence) ?? fallbackSequence(c.template)
   const start = firstNode(seq)
   // continue round-robin from however many are already assigned
@@ -463,7 +475,7 @@ export function enrollContacts(tenantId: string, campaignId: number, contactIds:
 
 // Re-spread not-yet-sent leads across the current account set (after the checklist changes).
 export function rebalanceAssignments(campaignId: number): void {
-  const accts = getCampaignAccounts(campaignId)
+  const accts = weightedRotation(getCampaignAccounts(campaignId))
   if (!accts.length) return
   const pending = db
     .prepare(`SELECT id FROM campaign_contacts WHERE campaign_id = ? AND status = 'pending' ORDER BY id`)
