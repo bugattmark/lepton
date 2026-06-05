@@ -6,14 +6,17 @@
   "engines": { "node": ">=23.6" },
   "scripts": {
     "dev": "node --watch src/server.ts",
-    "start": "node src/server.ts"
+    "start": "node src/server.ts",
+    "mcp": "node src/mcp.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
     "hono": "^4.6.14",
     "@whiskeysockets/baileys": "^6.7.18",
     "qrcode": "^1.5.4",
-    "pino": "^9.5.0"
+    "pino": "^9.5.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
