@@ -130,6 +130,7 @@ addColumn('contacts', 'attio_object', 'TEXT') // source object slug (for write-b
 addColumn('contacts', 'instagram_handle', 'TEXT') // lead-table column + {{instagram_handle}} var
 addColumn('contacts', 'event_link', 'TEXT') // the "Event (Instagram link)" column + {{instagram_link}} var
 addColumn('contacts', 'category', 'TEXT') // lead-table column + {{category}} var
+addColumn('accounts', 'send_policy', 'TEXT') // per-number warmup + distribution + window (JSON SendPolicy)
 addColumn('campaigns', 'sequence', 'TEXT') // JSON {nodes,edges} drawn on the canvas (source of truth)
 addColumn('campaign_contacts', 'account_id', 'TEXT') // which number sends THIS lead (rotated across the checklist)
 addColumn('campaign_contacts', 'node_id', 'TEXT') // where this lead currently sits in the sequence

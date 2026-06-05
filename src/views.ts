@@ -282,12 +282,33 @@ export function dashboardView(email: string): string {
            return '<div class="item">'
              +'<div class="flex"><b>'+esc(a.label)+'</b>'+badge+'</div>'
              +'<div class="acctmeta">'+acctMeta(a)+'</div>'
+             +'<div class="acctmeta">'+warmChip(a)+'</div>'
              +'<div class="flex mt">'+(ctl||'<span></span>')+'<button class="x" onclick="accDel(\\''+a.id+'\\')">remove</button></div>'
+             +'<button class="x" onclick="accPol(\\''+a.id+'\\')">⚙ Sending policy</button>'
+             +polEditor(a)
              +'</div>';
          }).join('')||'<p class="muted">No numbers yet.</p>';});}
+       function warmChip(a){var p=a.policy||{};var cap=(a.dailyCapToday!=null?a.dailyCapToday:(p.dailyCap||0));
+         var warm=(p.warmupEnabled&&cap<(p.dailyCap||0))?('Warming · day '+(a.warmupDay||1)+' · '):'';
+         return warm+cap+'/day · '+(a.sentToday||0)+' sent today';}
+       function polEditor(a){var p=a.policy||{};
+         return '<div id="pol_'+a.id+'" class="tbox" style="display:none">'
+           +'<label class="row2" style="margin:0"><input type="checkbox" id="wu_'+a.id+'" style="width:auto"'+(p.warmupEnabled?' checked':'')+'> Auto warm-up <span class="hint">(ramp daily sends up over ~2 weeks)</span></label>'
+           +'<div class="cfg3 mt">'
+           +'<div><label>Usage weight</label><input type="number" id="wt_'+a.id+'" value="'+(p.weight||1)+'"><div class="hint">higher = more leads vs other numbers</div></div>'
+           +'<div><label>Daily cap</label><input type="number" id="dc_'+a.id+'" value="'+(p.dailyCap||200)+'"><div class="hint">max sends/day</div></div>'
+           +'<div><label>Send window</label><div class="row2"><input type="number" id="ws_'+a.id+'" value="'+(p.windowStart!=null?p.windowStart:8)+'" style="width:56px"><span class="hint">to</span><input type="number" id="we_'+a.id+'" value="'+(p.windowEnd!=null?p.windowEnd:21)+'" style="width:56px"></div><div class="hint">local hours, e.g. 8–21</div></div>'
+           +'</div>'
+           +'<div class="row2 mt"><button class="btn sm" onclick="accPolSave(\\''+a.id+'\\')">Save policy</button><span class="mono" id="polmsg_'+a.id+'"></span></div>'
+           +'</div>';}
        window.accCon=function(id){POST('/api/accounts/'+id+'/connect').then(function(){setTimeout(loadAccounts,600);});};
        window.accDis=function(id){POST('/api/accounts/'+id+'/disconnect').then(loadAccounts);};
        window.accDel=function(id){DEL('/api/accounts/'+id).then(loadAccounts);};
+       window.accPol=function(id){var d=document.getElementById('pol_'+id);if(d)d.style.display=(d.style.display==='none')?'':'none';};
+       window.accPolSave=function(id){var g=function(p){return document.getElementById(p+id);};
+         var body={warmupEnabled:g('wu_').checked,weight:Number(g('wt_').value),dailyCap:Number(g('dc_').value),windowStart:Number(g('ws_').value),windowEnd:Number(g('we_').value)};
+         var m=document.getElementById('polmsg_'+id);if(m)m.textContent='saving…';
+         PUT('/api/accounts/'+id+'/policy',body).then(function(j){if(m)m.textContent=j.ok?'saved ✓':'error';loadAccounts();});};
 
        /* ===================== MAIN: connections + token ===================== */
        if($('#attioBtn'))$('#attioBtn').onclick=function(){$('#attioBtn').disabled=true;$('#attioBtn').textContent='Connecting…';
@@ -495,8 +516,8 @@ export function dashboardView(email: string): string {
          box.innerHTML=
            '<h5>Send WhatsApp</h5>'
            +'<label>Message</label><textarea id="iMsg" rows="4">'+esc(d.message||'')+'</textarea>'
-           +'<p class="hint">Personalize with <span class="mono">{{instagram_handle}}</span>, <span class="mono">{{instagram_link}}</span> and <span class="mono">{{category}}</span>.</p>'
-           +'<div class="row2 mt"><button class="x" id="insIg">+ handle</button><button class="x" id="insLink">+ link</button><button class="x" id="insCat">+ category</button>'
+           +'<p class="hint">Personalize with <span class="mono">{{instagram_handle}}</span>, <span class="mono">{{instagram_link}}</span>, <span class="mono">{{category}}</span>. Vary wording with spintax <span class="mono">{hey|hi|hello}</span> — each lead gets a random pick, so no two messages are identical.</p>'
+           +'<div class="row2 mt"><button class="x" id="insIg">+ handle</button><button class="x" id="insLink">+ link</button><button class="x" id="insCat">+ category</button><button class="x" id="insSpin">+ spin</button>'
            +'<label class="row2" style="margin:0"><input type="checkbox" id="iAi" style="width:auto"'+(d.aiPersonalize?' checked':'')+'> AI-personalize</label></div>'
            +'<div id="aiPromptBox" style="'+(d.aiPersonalize?'':'display:none')+'"><label class="mt">AI instruction</label><textarea id="iAiPrompt" rows="2" placeholder="e.g. keep it casual, mention the event">'+esc(d.aiPrompt||'')+'</textarea></div>'
            +'<hr><div class="flex"><h5>Engine ⚙</h5><select id="iTmpl" style="width:200px">'+tmpl+'</select></div>'
@@ -512,6 +533,7 @@ export function dashboardView(email: string): string {
          $('#insIg').onclick=function(){var t=$('#iMsg');t.value+='{{instagram_handle}}';setMsg(t.value);};
          $('#insLink').onclick=function(){var t=$('#iMsg');t.value+='{{instagram_link}}';setMsg(t.value);};
          $('#insCat').onclick=function(){var t=$('#iMsg');t.value+='{{category}}';setMsg(t.value);};
+         $('#insSpin').onclick=function(){var t=$('#iMsg');t.value+='{hey|hi|hello}';setMsg(t.value);};
          $('#iAi').onchange=function(){n.data.aiPersonalize=$('#iAi').checked;$('#aiPromptBox').style.display=$('#iAi').checked?'':'none';};
          var bind=function(id,key){$(id).onchange=function(){n.data[key]=Number($(id).value)||0;};};
          bind('#iCap','hourlyCap');bind('#iMin','minGap');bind('#iMax','maxGap');
