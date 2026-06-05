@@ -1,0 +1,22 @@
+{
+  "name": "wa-saas",
+  "private": true,
+  "type": "module",
+  "description": "Multi-tenant WhatsApp connector — connect/disconnect your WhatsApp, secure dashboard. Node + Hono + Baileys.",
+  "engines": { "node": ">=23.6" },
+  "scripts": {
+    "dev": "node --watch src/server.ts",
+    "start": "node src/server.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.6.14",
+    "@whiskeysockets/baileys": "^6.7.18",
+    "qrcode": "^1.5.4",
+    "pino": "^9.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/qrcode": "^1.5.5"
+  }
+}
