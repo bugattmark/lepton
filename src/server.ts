@@ -329,6 +329,10 @@ app.delete('/api/lists/:id', apiAuth, (c) => {
   camp.deleteLeadList(c.get('tenantId'), Number(c.req.param('id')))
   return c.json({ ok: true })
 })
+app.get('/api/lists/:id/contacts', apiAuth, async (c) => {
+  const rows = await camp.previewListContacts(c.get('tenantId'), Number(c.req.param('id')))
+  return c.json({ ok: true, contacts: rows })
+})
 
 // --- API token (for the MCP server). Cookie-auth only; never exposed via bearer. ---
 app.get('/api/token', apiAuth, (c) => {

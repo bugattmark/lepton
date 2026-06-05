@@ -322,6 +322,27 @@ export async function fetchListContacts(tenantId: string, listId: number): Promi
   return importAttioContacts(tenantId, pull.contacts, cfg.object)
 }
 
+// Read a saved list's people for preview (no upsert/mutation). CSV = snapshot, Attio = live pull.
+export interface ListPreviewRow { name: string | null; phone: string; instagram_handle: string | null; event_link: string | null; category: string | null }
+export async function previewListContacts(tenantId: string, id: number): Promise<ListPreviewRow[]> {
+  const list = getLeadList(tenantId, id)
+  if (!list) return []
+  const cfg = JSON.parse(list.config)
+  const map = (r: { name?: string | null; phone: string; instagram_handle?: string | null; event_link?: string | null; category?: string | null; vars?: Record<string, string> }): ListPreviewRow => ({
+    name: r.name ?? null,
+    phone: r.phone,
+    instagram_handle: r.instagram_handle ?? r.vars?.instagram_handle ?? r.vars?.instagram ?? null,
+    event_link: r.event_link ?? r.vars?.instagram_link ?? r.vars?.event_link ?? null,
+    category: r.category ?? r.vars?.category ?? null,
+  })
+  if (list.type === 'csv') return ((cfg.rows as UpsertRow[]) ?? []).map(map)
+  const key = getAttioKey(tenantId)
+  if (!key) return []
+  const attio = await import('./attio.ts')
+  const pull = await attio.pullContacts(key, { object: cfg.object, listId: cfg.listId || undefined, mapping: cfg.mapping })
+  return pull.contacts.map((c) => map({ name: c.name, phone: c.phone as string, vars: c.vars }))
+}
+
 // The list a campaign's Lead-list (start) block points at, if any.
 export function campaignListId(c: CampaignRow): number | null {
   const seq = parseSequence(c.sequence)

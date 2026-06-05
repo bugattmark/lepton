@@ -95,6 +95,10 @@ hr{border:none;border-top:1px solid var(--line);margin:24px 0}
 .pill.contacted{border-color:#000}
 .flex{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .tbox{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px;background:#fafafa}
+.ibackdrop{position:fixed;inset:0;background:rgba(0,0,0,.18);z-index:55}
+.ipanel{position:fixed;top:0;right:0;height:100vh;width:480px;max-width:94vw;background:#fff;border-left:1px solid #000;box-shadow:-10px 0 36px rgba(0,0,0,.16);padding:22px;overflow:auto;transform:translateX(102%);transition:transform .2s ease;z-index:60}
+.ipanel.open{transform:translateX(0)}
+.ipanel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 `
 
 export function page(title: string, body: string): string {
@@ -205,7 +209,6 @@ export function dashboardView(email: string): string {
        </div>
        <div class="tabs">
          <div class="tab on" data-tab="seq">Sequence</div>
-         <div class="tab" data-tab="leads">Leads</div>
          <div class="tab" data-tab="preview">Preview</div>
        </div>
 
@@ -226,15 +229,7 @@ export function dashboardView(email: string): string {
            <span class="hint" id="connHint">Tip: drag from the <b>dot at the bottom</b> of a block onto another block to link them. Drag a Wait back onto Send to loop.</span>
          </div>
          <div class="canvas mt" id="canvas"><div class="cstage" id="cstage"><svg class="edges" id="edges"></svg></div></div>
-
-         <div id="inspector" class="tbox"><p class="muted">Select a block to edit it.</p></div>
-       </div>
-
-       <!-- LEADS TAB -->
-       <div id="tabLeads" style="display:none">
-         <p class="hint">These leads are pulled from the list on your <b>Lead list</b> block. To pick or create a list, click that block in the Sequence tab.</p>
-         <div class="flex mt"><span class="mono" id="leadStats"></span><span class="hint">drag column headers to reorder</span></div>
-         <div style="overflow:auto"><table class="tbl" id="leadTbl"></table></div>
+         <p class="hint mt">Click any block to open its settings on the right.</p>
        </div>
 
        <!-- PREVIEW TAB -->
@@ -244,6 +239,13 @@ export function dashboardView(email: string): string {
        </div>
          </div><!-- /rightEditor -->
        </div><!-- /col-right -->
+
+       <!-- BLOCK EDITOR: slides in from the right when a node is clicked -->
+       <div id="inspectorBackdrop" class="ibackdrop" style="display:none"></div>
+       <div id="inspectorPanel" class="ipanel">
+         <div class="ipanel-head"><span class="mono" id="ipKind"></span><button class="x" id="ipClose">close ✕</button></div>
+         <div id="inspector"></div>
+       </div>
      </div><!-- /dashwrap -->
 
      <script>
@@ -320,17 +322,22 @@ export function dashboardView(email: string): string {
        function showMain(){$('#rightHome').style.display='';$('#rightEditor').style.display='none';loadCampaigns();}
        function showEditor(){$('#rightHome').style.display='none';$('#rightEditor').style.display='';}
        $('#edBack').onclick=showMain;
+       /* block editor slide-out (right) */
+       function openInspector(){renderInspector();$('#inspectorPanel').classList.add('open');$('#inspectorBackdrop').style.display='';}
+       function closeInspector(){$('#inspectorPanel').classList.remove('open');$('#inspectorBackdrop').style.display='none';if(SEL){SEL=null;renderCanvas();}}
+       $('#ipClose').onclick=closeInspector;
+       $('#inspectorBackdrop').onclick=closeInspector;
 
        window.openCampaign=function(id){J('/api/campaigns/'+id).then(function(j){if(!j.ok){alert(j.error||'failed');return;}
          ED.id=id;ED.name=j.campaign.name;ED.status=j.campaign.status;ED.seq=j.sequence;ED.accountIds=j.accountIds||[];ED.leads=j.leads||[];
          $('#edName').value=ED.name;setStatusBadge();
-         renderAccts();renderCanvas();renderInspector();renderLists();renderLeads(j.stats);switchTab('seq');showEditor();});};
+         renderAccts();renderCanvas();renderLists();switchTab('seq');showEditor();});};
 
        function setStatusBadge(){var b=$('#edStatus');b.className='badge '+ED.status;b.textContent=ED.status;
          $('#edToggle').textContent=(ED.status==='running')?'Turn off':'Turn on';}
 
        /* tabs */
-       function switchTab(t){['seq','leads','preview'].forEach(function(x){
+       function switchTab(t){['seq','preview'].forEach(function(x){
          $('#tab'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=(x===t)?'':'none';});
          document.querySelectorAll('.tab').forEach(function(el){el.classList.toggle('on',el.getAttribute('data-tab')===t);});
          if(t==='preview')loadPreview();
@@ -394,7 +401,7 @@ export function dashboardView(email: string): string {
          el.onclick=function(e){
            if(e.target.classList.contains('handle'))return;
            if(e.target.getAttribute('data-rm')){if(confirm('Remove this block?'))removeNode(n.id);return;}
-           SEL=n.id;renderCanvas();renderInspector();$('#inspector').scrollIntoView({behavior:'smooth',block:'nearest'});};
+           SEL=n.id;renderCanvas();openInspector();};
          /* connector handles: drag a wire onto another block */
          Array.prototype.slice.call(el.querySelectorAll('.handle')).forEach(function(p){
            p.onmousedown=function(e){startWire(n.id,p.getAttribute('data-port')||'',e);};});
@@ -427,11 +434,11 @@ export function dashboardView(email: string): string {
          document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);}
        function removeNode(id){ED.seq.nodes=ED.seq.nodes.filter(function(n){return n.id!==id;});
          ED.seq.edges=ED.seq.edges.filter(function(e){return e.from!==id&&e.to!==id;});
-         if(SEL===id)SEL=null;renderCanvas();renderInspector();}
-       $('#canvas').onclick=function(e){if(e.target.id==='canvas'||e.target.id==='cstage'){SEL=null;renderInspector();}};
+         if(SEL===id){SEL=null;closeInspector();}renderCanvas();}
+       $('#canvas').onclick=function(e){if(e.target.id==='canvas'||e.target.id==='cstage'){closeInspector();}};
 
        function addNode(type){var data=type==='send'?{message:'',hourlyCap:25,minGap:25,maxGap:70}:type==='wait'?{minutes:1440}:{};
-         var n={id:uid(),type:type,x:300,y:60+ED.seq.nodes.length*30,data:data};ED.seq.nodes.push(n);SEL=n.id;renderCanvas();renderInspector();}
+         var n={id:uid(),type:type,x:300,y:60+ED.seq.nodes.length*30,data:data};ED.seq.nodes.push(n);SEL=n.id;renderCanvas();openInspector();}
        $('#addSend').onclick=function(){addNode('send');};
        $('#addWait').onclick=function(){addNode('wait');};
        $('#addIf').onclick=function(){addNode('ifreply');};
@@ -458,6 +465,7 @@ export function dashboardView(email: string): string {
 
        /* ---- inspector (block editor) ---- */
        function renderInspector(){var box=$('#inspector');var n=SEL?findNode(SEL):null;
+         if($('#ipKind'))$('#ipKind').textContent=n?nodeTitle(n):'';
          if(!n){box.innerHTML='<p class="muted">Select a block to edit it.</p>';return;}
          if(n.type==='start'){
            var cur=(n.data&&n.data.listId)||'';
@@ -466,15 +474,17 @@ export function dashboardView(email: string): string {
              '<h5>Lead list</h5>'
              +'<p class="hint">Leads are pulled from this source. Loop a Wait back to this block to keep pulling fresh leads on that cadence.</p>'
              +'<label>Choose a list</label><select id="iList">'+opts+'</select>'
-             +'<div class="row2 mt"><button class="btn ghost sm" id="iAddCsv">+ New CSV list</button><button class="btn ghost sm" id="iAddAttio">+ New Attio list</button><button class="x" id="iDelList">delete list</button></div>'
+             +'<div id="iListTbl" class="mt"></div>'
+             +'<div class="row2 mt"><button class="btn ghost sm" id="iAddCsv">Import from CSV</button><button class="btn ghost sm" id="iAddAttio">Import from Attio</button><button class="x" id="iDelList">delete list</button></div>'
              +'<div id="iCsvBox" class="tbox" style="display:none"><label>List name</label><input id="iCsvName" placeholder="e.g. June IG leads"><label class="mt">Upload CSV <span class="hint">(needs a phone column; instagram / link auto-detected)</span></label><input type="file" id="iCsvFile" accept=".csv,text/csv"><button class="btn sm mt" id="iCsvSave">Save list</button><p class="mono mt" id="iCsvResult"></p></div>'
              +'<div id="iAttioBox" class="tbox" style="display:none"><label>List name</label><input id="iAtName" placeholder="e.g. Attio – Prospects"><div class="cfg3 mt"><div><label>Object</label><select id="iAtObj"></select></div><div><label>List (optional)</label><select id="iAtList"></select></div><div><label>Phone field</label><select id="iAtPhone"></select></div></div><div class="cfg3 mt"><div><label>Name</label><select id="iAtName2"></select></div><div><label>IG handle</label><select id="iAtIg"></select></div><div><label>Link</label><select id="iAtLink"></select></div></div><button class="btn sm mt" id="iAtSave">Save list</button><p class="mono mt" id="iAtResult"></p></div>';
-           $('#iList').onchange=function(){n.data=n.data||{};n.data.listId=$('#iList').value?Number($('#iList').value):null;renderCanvas();saveCampaign(true);};
+           loadListTable();
+           $('#iList').onchange=function(){n.data=n.data||{};n.data.listId=$('#iList').value?Number($('#iList').value):null;renderCanvas();saveCampaign(true);loadListTable();};
            $('#iDelList').onclick=function(){var id=$('#iList').value;if(!id)return;if(!confirm('Delete this list?'))return;DEL('/api/lists/'+id).then(function(){if(n.data)n.data.listId=null;renderLists();});};
            $('#iAddCsv').onclick=function(){var b=$('#iCsvBox');b.style.display=b.style.display==='none'?'':'none';$('#iAttioBox').style.display='none';};
            $('#iAddAttio').onclick=function(){var b=$('#iAttioBox');b.style.display=b.style.display==='none'?'':'none';$('#iCsvBox').style.display='none';if(b.style.display==='')loadAttioObjectsInto();};
-           $('#iCsvSave').onclick=function(){var f=$('#iCsvFile').files[0];if(!f){$('#iCsvResult').textContent='choose a file';return;}var rd=new FileReader();rd.onload=function(){$('#iCsvResult').textContent='uploading…';POST('/api/lists/csv',{name:$('#iCsvName').value||f.name,csv:rd.result}).then(function(j){$('#iCsvResult').textContent=j.ok?('saved ✓ '+j.size+' leads ('+j.noPhone+' had no phone)'):('error: '+(j.error||'failed'));if(j.ok){n.data=n.data||{};n.data.listId=j.id;renderLists().then(function(){saveCampaign(true);});}});};rd.readAsText(f);};
-           $('#iAtSave').onclick=function(){var phone=$('#iAtPhone').value;if(!phone){$('#iAtResult').textContent='pick a phone field';return;}var mapping={phone:phone,name:$('#iAtName2').value||undefined,vars:[]};if($('#iAtIg').value)mapping.vars.push($('#iAtIg').value);if($('#iAtLink').value)mapping.vars.push($('#iAtLink').value);$('#iAtResult').textContent='saving…';POST('/api/lists/attio',{name:$('#iAtName').value||'Attio list',object:$('#iAtObj').value,listId:$('#iAtList').value,mapping:mapping}).then(function(j){$('#iAtResult').textContent=j.ok?'saved ✓':('error: '+(j.error||'failed'));if(j.ok){n.data=n.data||{};n.data.listId=j.id;renderLists().then(function(){saveCampaign(true);});}});};
+           $('#iCsvSave').onclick=function(){var f=$('#iCsvFile').files[0];if(!f){$('#iCsvResult').textContent='choose a file';return;}var rd=new FileReader();rd.onload=function(){$('#iCsvResult').textContent='uploading…';POST('/api/lists/csv',{name:$('#iCsvName').value||f.name,csv:rd.result}).then(function(j){$('#iCsvResult').textContent=j.ok?('saved ✓ '+j.size+' leads ('+j.noPhone+' had no phone)'):('error: '+(j.error||'failed'));if(j.ok){n.data=n.data||{};n.data.listId=j.id;renderLists().then(function(){saveCampaign(true);renderInspector();});}});};rd.readAsText(f);};
+           $('#iAtSave').onclick=function(){var phone=$('#iAtPhone').value;if(!phone){$('#iAtResult').textContent='pick a phone field';return;}var mapping={phone:phone,name:$('#iAtName2').value||undefined,vars:[]};if($('#iAtIg').value)mapping.vars.push($('#iAtIg').value);if($('#iAtLink').value)mapping.vars.push($('#iAtLink').value);$('#iAtResult').textContent='saving…';POST('/api/lists/attio',{name:$('#iAtName').value||'Attio list',object:$('#iAtObj').value,listId:$('#iAtList').value,mapping:mapping}).then(function(j){$('#iAtResult').textContent=j.ok?'saved ✓':('error: '+(j.error||'failed'));if(j.ok){n.data=n.data||{};n.data.listId=j.id;renderLists().then(function(){saveCampaign(true);renderInspector();});}});};
            return;}
          if(n.type==='wait'){box.innerHTML='<h5>Wait</h5><label>Minutes to wait</label><input type="number" id="iWait" value="'+((n.data&&n.data.minutes)||0)+'"><p class="hint">e.g. 1440 = 1 day. Link this block back to Send to create a follow-up loop.</p>';
            $('#iWait').onchange=function(){n.data.minutes=Number($('#iWait').value)||0;renderCanvas();};return;}
@@ -521,6 +531,20 @@ export function dashboardView(email: string): string {
        function startNode(){return findNode('start')||ED.seq.nodes.filter(function(n){return n.type==='start';})[0];}
        function renderLists(){return J('/api/lists').then(function(j){if(j.ok)LISTS=j.lists;renderCanvas();
          var s=SEL?findNode(SEL):null;if(s&&s.type==='start')renderInspector();});}
+       function loadListTable(){var sel=$('#iList');if(!sel)return;var id=sel.value;var box=$('#iListTbl');if(!box)return;
+         if(!id){box.innerHTML='<p class="hint">No list selected yet — import people below to create one.</p>';return;}
+         box.innerHTML='<p class="hint">loading…</p>';
+         J('/api/lists/'+id+'/contacts').then(function(j){if(!j.ok){box.innerHTML='<p class="hint">'+(j.error||'could not load this list')+'</p>';return;}
+           var rows=j.contacts||[];
+           if(!rows.length){box.innerHTML='<p class="hint">This list is empty.</p>';return;}
+           var dash='<span class="hint">—</span>';
+           var body=rows.slice(0,200).map(function(r){
+             var ig=r.instagram_handle?esc(r.instagram_handle):dash;
+             var cat=r.category?esc(r.category):dash;
+             var lk=r.event_link?('<a href="'+esc(r.event_link)+'" target="_blank" rel="noopener">link ↗</a>'):dash;
+             return '<tr><td>'+ig+'</td><td>'+cat+'</td><td>'+lk+'</td></tr>';}).join('');
+           box.innerHTML='<div class="muted" style="font-size:12px">'+rows.length+' people in this list'+(rows.length>200?' (showing 200)':'')+'</div>'
+             +'<table class="tbl"><thead><tr><th>Instagram</th><th>Category</th><th>Link</th></tr></thead><tbody>'+body+'</tbody></table>';});}
        function loadAttioObjectsInto(){J('/api/attio/objects').then(function(j){if(!j.ok){if($('#iAtResult'))$('#iAtResult').textContent=j.error||'connect Attio in Connections (left dashboard) first';return;}
          $('#iAtObj').innerHTML=j.objects.map(function(o){return '<option value="'+o.api_slug+'">'+esc(o.plural||o.api_slug)+'</option>';}).join('');$('#iAtObj').onchange=atObjChangeInto;atObjChangeInto();});}
        function atObjChangeInto(){var obj=$('#iAtObj').value;if(!obj)return;
@@ -546,13 +570,14 @@ export function dashboardView(email: string): string {
          if(col==='phone')return '<span class="mono">'+esc(l.phone)+'</span>';
          return '';}
        function renderLeads(stats){
-         if(stats)$('#leadStats').textContent=(stats.total||0)+' leads · contacted '+((stats.sent||0)+(stats.completed||0))+' · replied '+(stats.replied||0);
+         if(!$('#leadTbl'))return; /* leads table removed; people now show in the Lead-list block */
+         if(stats&&$('#leadStats'))$('#leadStats').textContent=(stats.total||0)+' leads · contacted '+((stats.sent||0)+(stats.completed||0))+' · replied '+(stats.replied||0);
          var th=COLS.map(function(c,i){return '<th draggable="true" data-i="'+i+'">'+c.l+'</th>';}).join('');
          var body=ED.leads.map(function(l){return '<tr>'+COLS.map(function(c){return '<td>'+cellHTML(c.k,l)+'</td>';}).join('')+'</tr>';}).join('');
          $('#leadTbl').innerHTML='<thead><tr>'+th+'</tr></thead><tbody>'+(body||'<tr><td colspan="'+COLS.length+'" class="muted">No leads yet — pick a list above and they’ll fetch in.</td></tr>')+'</tbody>';
          wireColDrag();}
        var dragCol=null;
-       function wireColDrag(){Array.prototype.slice.call($('#leadTbl').querySelectorAll('th')).forEach(function(th){
+       function wireColDrag(){if(!$('#leadTbl'))return;Array.prototype.slice.call($('#leadTbl').querySelectorAll('th')).forEach(function(th){
          th.ondragstart=function(){dragCol=Number(th.getAttribute('data-i'));th.classList.add('drag');};
          th.ondragend=function(){th.classList.remove('drag');};
          th.ondragover=function(e){e.preventDefault();};
@@ -580,7 +605,7 @@ export function dashboardView(email: string): string {
 
        /* boot */
        loadAccounts().then(loadProfiles).then(loadCampaigns);loadSettings();
-       setInterval(function(){loadAccounts();if($('#rightEditor').style.display!=='none')refreshLeads();},4000);
+       setInterval(function(){loadAccounts();},4000);
      </script>`,
   )
 }
