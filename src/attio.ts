@@ -416,3 +416,53 @@ export async function writeDateAttr(
     body: JSON.stringify({ data: { values: { [slug]: isoDate } } }),
   })
 }
+
+// Query a Sales-list entry by its whatsapp_jid attribute. Returns the first match's entry_id, or null.
+export async function queryEntryByJid(
+  apiKey: string,
+  listId: string,
+  jid: string,
+): Promise<{ entryId: string; parentRecordId: string } | null> {
+  const j = await attio(apiKey, `/lists/${listId}/entries/query`, {
+    method: 'POST',
+    body: JSON.stringify({ filter: { whatsapp_jid: jid }, limit: 1 }),
+  })
+  const entry = j?.data?.[0]
+  if (!entry) return null
+  const entryId = entry?.id?.entry_id ?? entry?.id
+  const parentRecordId = entry?.parent_record_id
+  return entryId ? { entryId, parentRecordId } : null
+}
+
+// Read a People record's company reference. Returns the first linked company record id, or null.
+export async function getPersonCompany(apiKey: string, personRecordId: string): Promise<string | null> {
+  const j = await attio(apiKey, `/objects/people/records/${personRecordId}`)
+  const companyVals = j?.data?.values?.company
+  if (!Array.isArray(companyVals) || !companyVals.length) return null
+  return companyVals[0]?.target_record_id ?? null
+}
+
+// Upsert a Sales-list entry (create if missing, update if exists) with stage + notes + jid.
+// Uses PUT /v2/lists/{list}/entries which is Attio's native upsert-by-parent.
+export async function upsertSalesEntry(
+  apiKey: string,
+  listId: string,
+  companyRecordId: string,
+  values: { stage?: string; notes?: string; whatsapp_jid?: string },
+): Promise<string> {
+  const entry_values: Record<string, string> = {}
+  if (values.stage) entry_values.stage = values.stage
+  if (values.notes) entry_values.notes = values.notes
+  if (values.whatsapp_jid) entry_values.whatsapp_jid = values.whatsapp_jid
+  const j = await attio(apiKey, `/lists/${listId}/entries`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      data: {
+        parent_record_id: companyRecordId,
+        parent_object: 'companies',
+        entry_values,
+      },
+    }),
+  })
+  return j?.data?.id?.entry_id ?? ''
+}
