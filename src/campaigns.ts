@@ -5,6 +5,7 @@ import type { PulledContact } from './attio.ts'
 import { enc, dec } from './secret.ts'
 import { parseSequence, fallbackSequence, firstNode, nodeById, outgoing, type Sequence } from './sequence.ts'
 import { getPolicy } from './policy.ts'
+import { createHash } from 'node:crypto'
 
 // --- Attio key (per tenant) — encrypted at rest ---
 export function saveAttioKey(tenantId: string, key: string): void {
@@ -40,6 +41,120 @@ export function writebackNote(tenantId: string, contactId: number, text: string)
   if (!c?.attio_record_id) return
   void import('./attio.ts').then((a) =>
     a.writeNote(key, c.attio_object ?? 'people', c.attio_record_id as string, 'WhatsApp', text).catch(() => {}),
+  )
+}
+
+// --- reply-driven Attio stage sync config ---
+export interface SyncConfig {
+  salesListId: string
+  stageAttr: string
+  summaryAttr: string
+  jidAttr: string
+  stageOptions: string[]
+  debounceMinutes?: number
+}
+
+export function saveSyncConfig(tenantId: string, config: SyncConfig): void {
+  db.prepare('UPDATE tenants SET attio_stage_sync = 1, attio_sync_config = ? WHERE id = ?').run(
+    JSON.stringify(config),
+    tenantId,
+  )
+}
+
+export function getSyncConfig(tenantId: string): SyncConfig | null {
+  const row = db.prepare('SELECT attio_stage_sync, attio_sync_config FROM tenants WHERE id = ?').get(tenantId) as {
+    attio_stage_sync: number | null
+    attio_sync_config: string | null
+  } | undefined
+  if (!row || row.attio_stage_sync !== 1 || !row.attio_sync_config) return null
+  try {
+    return JSON.parse(row.attio_sync_config) as SyncConfig
+  } catch {
+    return null
+  }
+}
+
+export function getBusinessDescription(tenantId: string): string | null {
+  const row = db.prepare('SELECT business_description FROM tenants WHERE id = ?').get(tenantId) as {
+    business_description: string | null
+  } | undefined
+  return row?.business_description ?? null
+}
+
+export function saveBusinessDescription(tenantId: string, desc: string): void {
+  db.prepare('UPDATE tenants SET business_description = ? WHERE id = ?').run(desc, tenantId)
+}
+
+const summaryHash = (s: string) => createHash('sha256').update(s).digest('hex').slice(0, 16)
+
+export async function syncStageOnReply(tenantId: string, contactId: number): Promise<void> {
+  const cfg = getSyncConfig(tenantId)
+  if (!cfg) return
+
+  const apiKey = getAttioKey(tenantId)
+  if (!apiKey) return
+
+  const contact = db
+    .prepare('SELECT phone, name, attio_record_id, attio_object, attio_synced_at, attio_synced_stage, attio_summary_hash FROM contacts WHERE id = ? AND tenant_id = ?')
+    .get(contactId, tenantId) as {
+      phone: string; name: string | null; attio_record_id: string | null; attio_object: string | null;
+      attio_synced_at: number | null; attio_synced_stage: string | null; attio_summary_hash: string | null;
+    } | undefined
+  if (!contact) return
+
+  const debounceMs = (cfg.debounceMinutes ?? 10) * 60_000
+  if (contact.attio_synced_at && Date.now() - contact.attio_synced_at < debounceMs) return
+
+  const jid = contact.phone.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
+  const msgs = db
+    .prepare('SELECT direction, body FROM messages WHERE tenant_id = ? AND jid = ? ORDER BY created_at ASC')
+    .all(tenantId, jid) as { direction: string; body: string | null }[]
+  if (!msgs.length) return
+  const transcript = msgs
+    .filter((m) => m.body)
+    .map((m) => `${m.direction === 'out' ? 'Us' : 'Them'}: ${m.body}`)
+    .join('\n')
+  if (!transcript) return
+
+  const ai = await import('./ai.ts')
+  const bizDesc = getBusinessDescription(tenantId)
+  const result = await ai.assessConversation({
+    transcript,
+    contactName: contact.name,
+    stageOptions: cfg.stageOptions,
+    businessDescription: bizDesc,
+  })
+  if (!result) return
+
+  db.prepare('UPDATE contacts SET attio_synced_at = ? WHERE id = ?').run(Date.now(), contactId)
+
+  const newHash = summaryHash(result.summary)
+  if (result.stage === contact.attio_synced_stage && newHash === contact.attio_summary_hash) return
+
+  const attio = await import('./attio.ts')
+
+  let companyId: string | null = null
+  const byJid = await attio.queryEntryByJid(apiKey, cfg.salesListId, jid).catch(() => null)
+  if (byJid) {
+    companyId = byJid.parentRecordId
+  }
+
+  if (!companyId && contact.attio_record_id) {
+    companyId = await attio.getPersonCompany(apiKey, contact.attio_record_id).catch(() => null)
+  }
+
+  if (!companyId) return
+
+  await attio.upsertSalesEntry(apiKey, cfg.salesListId, companyId, {
+    stage: result.stage,
+    notes: result.summary,
+    whatsapp_jid: jid,
+  })
+
+  db.prepare('UPDATE contacts SET attio_synced_stage = ?, attio_summary_hash = ? WHERE id = ?').run(
+    result.stage,
+    newHash,
+    contactId,
   )
 }
 
