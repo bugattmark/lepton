@@ -180,7 +180,7 @@ export function onboardingView(_email: string): string {
            <div class="ob-body">
              <div class="ob-title">Add a Link <span class="ob-badge">&lt;1 min</span></div>
              <p class="ob-desc">Social link, website, portfolio, company page — anywhere brands can see your work.</p>
-             <a class="ob-btn" href="#">ADD A LINK <span class="ob-arrow">→</span></a>
+             <a class="ob-btn" href="#" id="obAddLink">ADD A LINK <span class="ob-arrow">→</span></a>
            </div>
          </div>
 
@@ -188,6 +188,22 @@ export function onboardingView(_email: string): string {
          ${locked('Create Follow-Up Template', '· Finish 2 steps above first', 'Most replies come from follow-ups — set this up once and Bento sends them automatically.')}
          ${locked('Send a first email with a follow up', '· Finish 3 steps above first', "Send a pitch with a follow-up scheduled right after — Bento sends it automatically if they don't reply.")}
          ${locked('Send 10 Brand Pitches', '· Finish 4 steps above first', 'Browse brands matched to your niche and send your first 10 pitches to finish onboarding.', progress)}
+       </div>
+     </div>
+
+     <!-- Add Portfolio Link modal -->
+     <div id="lnkBackdrop" class="lnk-backdrop" style="display:none">
+       <div class="lnk-modal" role="dialog" aria-modal="true">
+         <div class="lnk-h">Add Portfolio Link</div>
+         <div class="lnk-card">
+           <div class="lnk-sub">Please share your most active social links below</div>
+           <div id="lnkRows"></div>
+           <a href="#" id="lnkAdd" class="lnk-add">ADD LINK +</a>
+         </div>
+         <div class="lnk-foot">
+           <a href="#" id="lnkCancel" class="lnk-cancel">CANCEL</a>
+           <button id="lnkSave" class="lnk-save" disabled>SAVE</button>
+         </div>
        </div>
      </div>
      <style>
@@ -217,7 +233,65 @@ export function onboardingView(_email: string): string {
        .ob-pcount{font-size:17px;font-weight:700;color:#000}
        .ob-pbar{height:8px;border-radius:999px;background:#e5e5e5;overflow:hidden}
        .ob-pfill{height:100%;background:#000;border-radius:999px}
-     </style>`,
+
+       /* Add Portfolio Link modal */
+       .lnk-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+       .lnk-modal{background:#fff;border-radius:16px;width:100%;max-width:660px;padding:28px 30px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+       .lnk-h{font-size:24px;font-weight:700;color:#111;margin-bottom:20px}
+       .lnk-card{border:1px solid #e3e3e3;border-radius:14px;padding:20px}
+       .lnk-sub{font-size:16px;color:#222;margin-bottom:14px}
+       .lnk-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+       .lnk-row:last-child{margin-bottom:0}
+       .lnk-sel{position:relative;flex:0 0 185px}
+       .lnk-sel select{width:100%;appearance:none;-webkit-appearance:none;background:#fff;border:1px solid #d9d9d9;border-radius:12px;padding:14px 36px 14px 16px;font-size:16px;color:#111;cursor:pointer;font-weight:500}
+       .lnk-sel select:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .lnk-chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#666}
+       .lnk-inp{flex:1;display:flex;align-items:center;border:1px solid #d9d9d9;border-radius:12px;padding:0 14px;background:#fff;min-width:0}
+       .lnk-inp:focus-within{border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .lnk-pre{color:#444;font-size:16px;white-space:nowrap}
+       .lnk-inp input{border:none;outline:none;flex:1;padding:14px 6px;font-size:16px;color:#111;min-width:0;background:transparent}
+       .lnk-inp input::placeholder{color:#9a9a9a}
+       .lnk-del{flex:0 0 auto;background:none;border:none;cursor:pointer;color:#9aa0c2;padding:6px;line-height:0}
+       .lnk-del:hover{color:#e0556b}
+       .lnk-add{display:inline-block;color:#14532d;font-weight:700;font-size:16px;letter-spacing:.02em;text-decoration:none;cursor:pointer}
+       .lnk-foot{display:flex;justify-content:flex-end;align-items:center;gap:24px;margin-top:22px}
+       .lnk-cancel{color:#14532d;font-weight:700;font-size:16px;letter-spacing:.04em;text-decoration:none;cursor:pointer;text-transform:uppercase}
+       .lnk-save{background:#e6e6e6;color:#9a9a9a;border:none;border-radius:10px;padding:12px 26px;font-size:16px;font-weight:700;letter-spacing:.04em;cursor:not-allowed;text-transform:uppercase}
+       .lnk-save.on{background:#14532d;color:#fff;cursor:pointer}
+     </style>
+     <script>
+       (function(){
+         var PLAT={Instagram:{pre:'https://instagram.com/',ph:'handle'},TikTok:{pre:'https://tiktok.com/@',ph:'handle'},YouTube:{pre:'https://youtube.com/@',ph:'handle'},Twitch:{pre:'https://www.twitch.tv/',ph:'handle'},Portfolio:{pre:'https://',ph:'website.com'}};
+         var ORDER=['Instagram','TikTok','YouTube','Twitch','Portfolio'];
+         var KEY='lepton_portfolio_links';
+         var rows=[];
+         var bd=document.getElementById('lnkBackdrop'),rowsEl=document.getElementById('lnkRows'),addEl=document.getElementById('lnkAdd'),saveEl=document.getElementById('lnkSave');
+         function trash(){return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';}
+         function chev(){return '<svg class="lnk-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';}
+         function opts(sel){return ORDER.map(function(p){return '<option value="'+p+'"'+(p===sel?' selected':'')+'>'+p+'</option>';}).join('');}
+         function esc(s){return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+         function render(){
+           rowsEl.innerHTML=rows.map(function(r,i){var p=PLAT[r.platform]||PLAT.Portfolio;
+             return '<div class="lnk-row" data-i="'+i+'"><div class="lnk-sel"><select class="lnk-plat">'+opts(r.platform)+'</select>'+chev()+'</div>'
+               +'<div class="lnk-inp"><span class="lnk-pre">'+p.pre+'</span><input class="lnk-handle" type="text" placeholder="'+p.ph+'" value="'+esc(r.handle)+'"></div>'
+               +'<button class="lnk-del" title="Remove">'+trash()+'</button></div>';}).join('');
+           addEl.style.display=rows.length>=ORDER.length?'none':'inline-block';
+           validate();
+         }
+         function validate(){var ok=rows.some(function(r){return (r.handle||'').trim().length>0;});saveEl.disabled=!ok;saveEl.className='lnk-save'+(ok?' on':'');}
+         function nextPlatform(){for(var i=0;i<ORDER.length;i++){var p=ORDER[i];if(!rows.some(function(r){return r.platform===p;}))return p;}return ORDER[0];}
+         rowsEl.addEventListener('input',function(e){if(e.target.classList.contains('lnk-handle')){rows[+e.target.closest('.lnk-row').dataset.i].handle=e.target.value;validate();}});
+         rowsEl.addEventListener('change',function(e){if(e.target.classList.contains('lnk-plat')){rows[+e.target.closest('.lnk-row').dataset.i].platform=e.target.value;render();}});
+         rowsEl.addEventListener('click',function(e){var b=e.target.closest('.lnk-del');if(b){rows.splice(+b.closest('.lnk-row').dataset.i,1);render();}});
+         addEl.addEventListener('click',function(e){e.preventDefault();rows.push({platform:nextPlatform(),handle:''});render();});
+         function open(){try{rows=JSON.parse(localStorage.getItem(KEY))||[];}catch(_){rows=[];}if(!Array.isArray(rows))rows=[];render();bd.style.display='flex';}
+         function close(){bd.style.display='none';}
+         var trig=document.getElementById('obAddLink');if(trig)trig.addEventListener('click',function(e){e.preventDefault();open();});
+         document.getElementById('lnkCancel').addEventListener('click',function(e){e.preventDefault();close();});
+         bd.addEventListener('click',function(e){if(e.target===bd)close();});
+         saveEl.addEventListener('click',function(){if(saveEl.disabled)return;localStorage.setItem(KEY,JSON.stringify(rows.filter(function(r){return (r.handle||'').trim();})));close();});
+       })();
+     </script>`,
   )
 }
 
