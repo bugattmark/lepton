@@ -219,6 +219,7 @@ export function dashboardView(email: string): string {
            <button type="button" class="msdd-btn" id="edAcctsBtn"><span class="ph">Select accounts…</span></button>
            <div class="msdd-panel" id="edAcctsPanel" style="display:none"></div>
          </div>
+         <div id="acctBudget"></div>
 
          <div class="flex mt">
            <div class="row2">
@@ -271,23 +272,44 @@ export function dashboardView(email: string): string {
          if(a.status==='connected'&&a.jid){var num=String(a.jid).split('@')[0].split(':')[0];return '+'+esc(num);}
          if(a.hasQr)return 'Scan the QR code to connect';
          return 'Not connected yet';}
-       function loadAccounts(){return J('/api/accounts').then(function(j){if(!j.ok)return;ACCTS=j.accounts;
-         $('#accList').innerHTML=ACCTS.map(function(a){var ctl='';
-           if(a.type==='baileys'){
-             if(a.status==='connected')ctl='<button class="btn ghost sm" onclick="accDis(\\''+a.id+'\\')">Disconnect</button>';
-             else if(a.hasQr)ctl='<span class="qr"><img alt="QR" src="/api/accounts/'+a.id+'/qr.png?t='+Date.now()+'"></span>';
-             else ctl='<button class="btn sm" onclick="accCon(\\''+a.id+'\\')">Connect</button>';
-           }
-           var badge='<span class="badge '+(a.status==='connected'?'connected':'disconnected')+'">'+(a.type==='cloud'?'Public':'Private')+' · '+a.status+'</span>';
-           return '<div class="item">'
-             +'<div class="flex"><b>'+esc(a.label)+'</b>'+badge+'</div>'
-             +'<div class="acctmeta">'+acctMeta(a)+'</div>'
-             +'<div class="acctmeta">'+warmChip(a)+'</div>'
-             +'<div class="flex mt">'+(ctl||'<span></span>')+'<button class="x" onclick="accDel(\\''+a.id+'\\')">remove</button></div>'
-             +'<button class="x" onclick="accPol(\\''+a.id+'\\')">⚙ Sending policy</button>'
-             +polEditor(a)
-             +'</div>';
-         }).join('')||'<p class="muted">No numbers yet.</p>';});}
+       /* Accounts list updates IN PLACE: each row's DOM (incl. its open policy panel,
+          focused inputs, and QR img) is built once and reused. Polls only patch the
+          bits that change — so the 4s refresh never closes panels or reloads the QR. */
+       var ACCT_EL={};
+       function loadAccounts(){return J('/api/accounts').then(function(j){if(!j.ok)return;ACCTS=j.accounts;reconcileAccounts(j.accounts);});}
+       function reconcileAccounts(list){var host=$('#accList');if(!host)return;
+         if(!list.length){host.innerHTML='<p class="muted">No numbers yet.</p>';ACCT_EL={};return;}
+         var muted=host.querySelector('.muted');if(muted)muted.remove();
+         var seen={};
+         list.forEach(function(a,i){seen[a.id]=1;
+           var row=ACCT_EL[a.id];
+           if(!row){row=buildAcctRow(a);ACCT_EL[a.id]=row;}
+           updateAcctRow(row,a);
+           var at=host.children[i];if(at!==row)host.insertBefore(row,at||null);});
+         Object.keys(ACCT_EL).forEach(function(id){if(!seen[id]){ACCT_EL[id].remove();delete ACCT_EL[id];}});}
+       function buildAcctRow(a){var el=document.createElement('div');el.className='item';
+         el.innerHTML='<div class="flex"><b class="ar-label"></b><span class="ar-badge badge"></span></div>'
+           +'<div class="acctmeta ar-meta"></div>'
+           +'<div class="acctmeta ar-warm"></div>'
+           +'<div class="flex mt"><span class="ar-ctl"></span><button class="x" onclick="accDel(\\''+a.id+'\\')">remove</button></div>'
+           +'<button class="x" onclick="accPol(\\''+a.id+'\\')">⚙ Sending policy</button>'
+           +polEditor(a);
+         return el;}
+       function updateAcctRow(row,a){var q=function(c){return row.querySelector('.'+c);};
+         q('ar-label').textContent=a.label;
+         var badge=q('ar-badge');badge.textContent=(a.type==='cloud'?'Public':'Private')+' · '+a.status;
+         badge.className='ar-badge badge '+(a.status==='connected'?'connected':'disconnected');
+         q('ar-meta').innerHTML=acctMeta(a);
+         q('ar-warm').textContent=warmChip(a);
+         var ctl=q('ar-ctl');
+         var sig=a.type==='cloud'?'cloud':(a.status==='connected'?'conn':(a.hasQr?'qr':'disc'));
+         if(ctl.getAttribute('data-sig')!==sig){ctl.setAttribute('data-sig',sig);
+           if(sig==='conn')ctl.innerHTML='<button class="btn ghost sm" onclick="accDis(\\''+a.id+'\\')">Disconnect</button>';
+           else if(sig==='disc')ctl.innerHTML='<button class="btn sm" onclick="accCon(\\''+a.id+'\\')">Connect</button>';
+           else if(sig==='qr'){ctl.innerHTML='<span class="qr"><img alt="QR" src="/api/accounts/'+a.id+'/qr.png?t='+Date.now()+'"></span>';ctl.setAttribute('data-qrt',String(Date.now()));}
+           else ctl.innerHTML='<span></span>';}
+         else if(sig==='qr'){var last=Number(ctl.getAttribute('data-qrt')||0);
+           if(Date.now()-last>15000){var img=ctl.querySelector('img');if(img){img.src='/api/accounts/'+a.id+'/qr.png?t='+Date.now();ctl.setAttribute('data-qrt',String(Date.now()));}}}}
        function warmChip(a){var p=a.policy||{};var cap=(a.dailyCapToday!=null?a.dailyCapToday:(p.dailyCap||0));
          var warm=(p.warmupEnabled&&cap<(p.dailyCap||0))?('Warming · day '+(a.warmupDay||1)+' · '):'';
          return warm+cap+'/day · '+(a.sentToday||0)+' sent today';}
@@ -368,7 +390,32 @@ export function dashboardView(email: string): string {
        /* account multi-select dropdown */
        function updateAcctsBtn(){
          var names=ACCTS.filter(function(a){return ED.accountIds.indexOf(a.id)>=0;}).map(function(a){return esc(a.label);});
-         $('#edAcctsBtn').innerHTML=names.length?'<span>'+names.join(', ')+'</span>':'<span class="ph">Select accounts…</span>';}
+         $('#edAcctsBtn').innerHTML=names.length?'<span>'+names.join(', ')+'</span>':'<span class="ph">Select accounts…</span>';
+         renderAcctBudget();}
+       /* read-only: how many each picked number can still send TODAY, with warm-up applied */
+       function renderAcctBudget(){
+         var box=$('#acctBudget');if(!box)return;
+         var picked=ACCTS.filter(function(a){return ED.accountIds.indexOf(a.id)>=0;});
+         if(!picked.length){box.innerHTML='';return;}
+         var totalLeft=0,anyWarming=false;
+         var rows=picked.map(function(a){
+           var p=a.policy||{};
+           var cap=(a.dailyCapToday!=null?a.dailyCapToday:(p.dailyCap||0));
+           var left=Math.max(0,cap-(a.sentToday||0));
+           totalLeft+=left;
+           var warming=(p.warmupEnabled&&cap<(p.dailyCap||0));
+           if(warming)anyWarming=true;
+           var tag=warming?('<span class="mono"> · warming day '+(a.warmupDay||1)+'</span>'):(p.warmupEnabled?'':'<span class="mono"> · warm-up off</span>');
+           return '<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0">'
+             +'<span>'+esc(a.label)+tag+'</span>'
+             +'<span class="mono">'+cap+'/day · '+left+' left today</span></div>';
+         }).join('');
+         box.innerHTML='<div class="tbox" style="margin-top:8px">'
+           +'<div style="font-weight:700;font-size:12px;margin-bottom:4px">Today\\'s send budget'+(anyWarming?' (warm-up applied)':'')+'</div>'
+           +rows
+           +'<div style="display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);margin-top:6px;padding-top:6px;font-weight:700"><span>Total left today</span><span class="mono">~'+totalLeft+' messages</span></div>'
+           +(anyWarming?'<div class="hint">Caps grow automatically each day as the new numbers warm up. Edit per number under ⚙ Sending policy (left).</div>':'<div class="hint">Set per-number caps/weights under ⚙ Sending policy (left).</div>')
+           +'</div>';}
        function renderAccts(){
          $('#edAcctsPanel').innerHTML=ACCTS.map(function(a){
            var on=ED.accountIds.indexOf(a.id)>=0;
