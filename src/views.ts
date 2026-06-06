@@ -35,6 +35,9 @@ a{color:inherit}
 .card p{font-size:14px;color:var(--muted)}
 .authbox{max-width:380px;margin:64px auto;border:1px solid var(--line);border-radius:16px;padding:32px}
 .authbox h2{font-size:24px;letter-spacing:-.02em;margin-bottom:20px}
+.authdiv{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--muted);font-size:13px}
+.authdiv:before,.authdiv:after{content:'';flex:1;height:1px;background:var(--line)}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none}
 label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
 input,select,textarea{width:100%;border:1px solid #000;border-radius:8px;padding:11px 12px;font-size:15px;font-family:inherit;background:#fff}
 input:focus,select:focus,textarea:focus{outline:2px solid #000;outline-offset:1px}
@@ -134,6 +137,11 @@ export function authView(mode: 'login' | 'signup', error?: string): string {
          <input id="password" name="password" type="password" autocomplete="${isSignup ? 'new-password' : 'current-password'}" minlength="8" required>
          <button class="btn full" type="submit">${isSignup ? 'Create account' : 'Log in'}</button>
        </form>
+       <div class="authdiv"><span>or</span></div>
+       <a class="btn ghost full gbtn" href="/auth/google">
+         <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+         Continue with Google
+       </a>
        <p class="muted center mt">
          ${isSignup ? "Already have an account? <a href='/login'>Log in</a>" : "New here? <a href='/signup'>Create an account</a>"}
        </p>
@@ -580,6 +588,189 @@ export function onboardingView(_email: string): string {
            }
          }
          window.__refreshSteps=compute;compute();
+       })();
+     </script>`,
+  )
+}
+
+export function startOnboardingView(_email: string): string {
+  return page(
+    'Get started',
+    `<div class="sob">
+       <div class="sob-top"><span class="sob-pill" id="stepPill">Step 1/2</span></div>
+       <h1 class="sob-h" id="stepTitle">Let's Get To Know You ✍️</h1>
+       <div id="errBar" class="sob-err" style="display:none"></div>
+
+       <section id="step1" class="sob-card">
+         <label class="sob-lab">Your Name <span class="req">*</span></label>
+         <input id="f_name" class="sob-in" placeholder="Your name" autocomplete="name">
+
+         <label class="sob-lab">Who are you? <span class="req">*</span></label>
+         <div class="sob-dd" id="rolesDD">
+           <button type="button" class="sob-ddbtn" id="rolesBtn"><span class="ph">Select all that apply</span><span class="car">▾</span></button>
+           <div class="sob-ddpanel" id="rolesPanel" style="display:none"></div>
+         </div>
+
+         <label class="sob-lab">Who do you want to pitch to? <span class="req">*</span></label>
+         <input id="f_pitch" class="sob-in" placeholder="Restaurant managers, PR team, Event sponsors, Influencers, Marketing managers...">
+
+         <div class="sob-sub">
+           <div class="sob-subh">Where are you in your brand deal journey?</div>
+           <div class="sob-subnote">Select an option below.</div>
+           <div class="sob-pills" id="journeyPills"></div>
+         </div>
+
+         <div class="sob-sub">
+           <div class="sob-subh">How did you hear about us?</div>
+           <div class="sob-subnote">Select an option below.</div>
+           <div class="sob-pills" id="heardPills"></div>
+         </div>
+       </section>
+
+       <section id="step2" class="sob-card" style="display:none">
+         <div class="sob-subh">What brand categories do you want to see?</div>
+         <div class="sob-subnote">Select all categories you want to see. You can always change this later.</div>
+         <div class="sob-pills" id="catPills" style="margin-top:18px"></div>
+       </section>
+
+       <div class="sob-foot">
+         <button type="button" class="sob-back" id="backBtn" style="visibility:hidden">⟵ BACK</button>
+         <button type="button" class="sob-next" id="nextBtn">NEXT <span>➔</span></button>
+       </div>
+     </div>
+     <style>
+       body{background:#f6f5f1}
+       .sob{max-width:1000px;margin:0 auto;padding:36px 24px 80px}
+       .sob-top{display:flex;justify-content:center;margin-bottom:22px}
+       .sob-pill{border:1px solid #111;border-radius:999px;padding:8px 20px;font-size:15px;font-weight:600;background:#fff}
+       .sob-h{text-align:center;font-size:46px;letter-spacing:-.02em;margin-bottom:26px}
+       .sob-err{max-width:880px;margin:0 auto 16px;background:#111;color:#fff;border-radius:10px;padding:12px 16px;font-size:14px}
+       .sob-card{background:#fff;border-radius:22px;padding:34px 38px;box-shadow:0 1px 2px rgba(0,0,0,.04);max-width:880px;margin:0 auto}
+       .sob-lab{display:block;font-size:17px;font-weight:500;margin:22px 0 8px;color:#111}
+       .sob-lab:first-child{margin-top:0}
+       .req{color:#111}
+       .sob-in{width:100%;border:1px solid #d9d7d0;border-radius:14px;padding:16px 18px;font-size:16px;background:#fff;font-family:inherit}
+       .sob-in:focus{outline:none;border-color:#111}
+       .sob-in::placeholder{color:#a8a49a}
+       .sob-dd{position:relative}
+       .sob-ddbtn{width:100%;text-align:left;border:1px solid #d9d7d0;border-radius:14px;padding:16px 18px;font-size:16px;background:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+       .sob-ddbtn .ph{color:#a8a49a}
+       .sob-ddpanel{position:absolute;z-index:20;left:0;right:0;margin-top:6px;background:#fff;border:1px solid #111;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.14);padding:8px;max-height:280px;overflow:auto}
+       .sob-ddopt{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;cursor:pointer;font-size:15px}
+       .sob-ddopt:hover{background:#f4f3ef}
+       .sob-ddopt input{width:auto}
+       .sob-sub{border:1px solid #ece9e2;border-radius:16px;padding:22px 24px;margin-top:22px}
+       .sob-subh{font-size:18px;font-weight:600;color:#111}
+       .sob-subnote{font-size:14px;color:#8a867c;margin-top:4px}
+       .sob-pills{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+       .sob-chip{border:1px solid #d9d7d0;border-radius:999px;padding:11px 18px;font-size:15px;background:#fff;cursor:pointer;user-select:none;line-height:1.2}
+       .sob-chip:hover{border-color:#111}
+       .sob-chip.on{background:#111;color:#fff;border-color:#111}
+       .sob-foot{max-width:880px;margin:26px auto 0;display:flex;justify-content:space-between;align-items:center}
+       .sob-back{background:none;border:none;color:#14492e;font-weight:700;font-size:15px;letter-spacing:.04em;cursor:pointer}
+       .sob-next{background:#14492e;color:#fff;border:none;border-radius:12px;padding:15px 30px;font-size:15px;font-weight:700;letter-spacing:.04em;cursor:pointer;display:inline-flex;gap:10px;align-items:center}
+       .sob-next:hover{background:#0e3a24}
+       .sob-next[disabled]{opacity:.6;cursor:default}
+       @media(max-width:680px){.sob-h{font-size:32px}.sob-card{padding:24px}}
+     </style>
+     <script>
+       (function(){
+         var ROLES=["Creator / Influencer","UGC Creator","Founder / Business Owner","Marketer","Agency / Manager","Freelancer","Other"];
+         var JOURNEY=[
+           {e:"\\uD83C\\uDF31",t:"Brand new - working toward my first deal"},
+           {e:"\\u2709\\uFE0F",t:"Done some creator work, but new to pitching"},
+           {e:"\\uD83D\\uDD01",t:"Tried pitching, want better results"},
+           {e:"\\uD83D\\uDCBC",t:"I work with brands regularly and want to streamline my workflow"}
+         ];
+         var HEARD=["From a friend or colleague","Instagram","TikTok","Google","Twitter / X","Community Group/Course","YouTube","Other"];
+         var CATS=["Fashion","Women's Fashion","Men's Fashion","Activewear","Fashion Accessories","Beauty & Personal Care","Travel","Vehicles & Transportation","Baby, Kids, & Family","Apps & Software","Games & Entertainment","Home","Technology & Electronics","Lifestyle","Arts & Crafts","Health & Wellness","Sports & Fitness","Pets","Food & Beverage","Professional Services","Education","General Retailers & E-Commerce Platforms"];
+         var state={name:"",roles:[],pitchTo:"",journey:"",heardFrom:"",brandCategories:[]};
+         var step=1;
+         function el(id){return document.getElementById(id);}
+         function showErr(m){var b=el("errBar");if(!m){b.style.display="none";return;}b.textContent=m;b.style.display="block";window.scrollTo({top:0,behavior:"smooth"});}
+
+         // roles multiselect
+         var panel=el("rolesPanel");
+         ROLES.forEach(function(r){
+           var lab=document.createElement("label");lab.className="sob-ddopt";
+           var cb=document.createElement("input");cb.type="checkbox";cb.value=r;
+           cb.addEventListener("change",function(){
+             if(cb.checked){if(state.roles.indexOf(r)<0)state.roles.push(r);}
+             else{state.roles=state.roles.filter(function(x){return x!==r;});}
+             paintRoles();
+           });
+           lab.appendChild(cb);lab.appendChild(document.createTextNode(r));panel.appendChild(lab);
+         });
+         function paintRoles(){
+           var btn=el("rolesBtn");
+           if(state.roles.length){btn.innerHTML="<span>"+state.roles.join(", ")+"</span><span class=car>\\u25BE</span>";}
+           else{btn.innerHTML="<span class=ph>Select all that apply</span><span class=car>\\u25BE</span>";}
+         }
+         el("rolesBtn").addEventListener("click",function(e){e.stopPropagation();panel.style.display=panel.style.display==="none"?"block":"none";});
+         document.addEventListener("click",function(e){if(!el("rolesDD").contains(e.target))panel.style.display="none";});
+
+         // single-select pills
+         function pills(container,items,key){
+           var box=el(container);
+           items.forEach(function(it){
+             var label=(typeof it==="string")?it:(it.e+" "+it.t);
+             var val=(typeof it==="string")?it:it.t;
+             var c=document.createElement("div");c.className="sob-chip";c.textContent=label;
+             c.addEventListener("click",function(){
+               state[key]=(state[key]===val)?"":val;
+               Array.prototype.forEach.call(box.children,function(ch){ch.classList.remove("on");});
+               if(state[key])c.classList.add("on");
+             });
+             box.appendChild(c);
+           });
+         }
+         pills("journeyPills",JOURNEY,"journey");
+         pills("heardPills",HEARD,"heardFrom");
+
+         // multi-select category pills
+         var catBox=el("catPills");
+         CATS.forEach(function(cat){
+           var c=document.createElement("div");c.className="sob-chip";c.textContent=cat;
+           c.addEventListener("click",function(){
+             var i=state.brandCategories.indexOf(cat);
+             if(i<0){state.brandCategories.push(cat);c.classList.add("on");}
+             else{state.brandCategories.splice(i,1);c.classList.remove("on");}
+           });
+           catBox.appendChild(c);
+         });
+
+         function gotoStep(n){
+           step=n;
+           el("step1").style.display=(n===1)?"block":"none";
+           el("step2").style.display=(n===2)?"block":"none";
+           el("stepPill").textContent="Step "+n+"/2";
+           el("stepTitle").textContent=(n===1)?"Let's Get To Know You \\u270D\\uFE0F":"Your Brand Types \\uD83D\\uDDC2\\uFE0F";
+           el("backBtn").style.visibility=(n===2)?"visible":"hidden";
+           showErr("");window.scrollTo({top:0,behavior:"smooth"});
+         }
+         el("backBtn").addEventListener("click",function(){gotoStep(1);});
+
+         el("nextBtn").addEventListener("click",function(){
+           if(step===1){
+             state.name=el("f_name").value.trim();
+             state.pitchTo=el("f_pitch").value.trim();
+             if(!state.name)return showErr("Please enter your name.");
+             if(!state.roles.length)return showErr("Please select who you are.");
+             if(!state.pitchTo)return showErr("Please tell us who you want to pitch to.");
+             gotoStep(2);return;
+           }
+           if(!state.brandCategories.length)return showErr("Pick at least one brand category.");
+           var btn=el("nextBtn");btn.disabled=true;btn.textContent="Saving…";
+           fetch("/api/onboarding/intake",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(state)})
+             .then(function(r){return r.json();})
+             .then(function(j){
+               if(j&&j.ok){window.location=j.next||"/dashboard";}
+               else{btn.disabled=false;btn.innerHTML="NEXT <span>\\u2794</span>";showErr((j&&j.error)||"Something went wrong. Try again.");}
+             })
+             .catch(function(){btn.disabled=false;btn.innerHTML="NEXT <span>\\u2794</span>";showErr("Network error. Try again.");});
+         });
+
+         paintRoles();
        })();
      </script>`,
   )
