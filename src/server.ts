@@ -215,22 +215,25 @@ app.post('/api/onboarding/intake', apiAuth, async (c) => {
 })
 
 app.post('/api/onboarding/link', apiAuth, async (c) => {
-  const { link } = (await c.req.json()) as { link?: string }
-  if (!link || !/^https?:\/\/.+/i.test(link.trim())) return c.json({ ok: false, error: 'enter a valid URL' }, 400)
-  onb.setLink(c.get('tenantId'), link.trim())
+  const body = (await c.req.json().catch(() => ({}))) as { link?: unknown }
+  const link = typeof body.link === 'string' ? body.link.trim() : ''
+  if (!/^https?:\/\/.+/i.test(link)) return c.json({ ok: false, error: 'enter a valid URL' }, 400)
+  onb.setLink(c.get('tenantId'), link)
   return c.json({ ok: true })
 })
 
 app.post('/api/onboarding/pitch-template', apiAuth, async (c) => {
-  const { body } = (await c.req.json()) as { body?: string }
-  if (!body?.trim()) return c.json({ ok: false, error: 'write your pitch' }, 400)
+  const b = (await c.req.json().catch(() => ({}))) as { body?: unknown }
+  const body = typeof b.body === 'string' ? b.body : ''
+  if (!body.trim()) return c.json({ ok: false, error: 'write your pitch' }, 400)
   onb.setPitchTemplate(c.get('tenantId'), body)
   return c.json({ ok: true })
 })
 
 app.post('/api/onboarding/followup-template', apiAuth, async (c) => {
-  const { body } = (await c.req.json()) as { body?: string }
-  if (!body?.trim()) return c.json({ ok: false, error: 'write your follow-up' }, 400)
+  const b = (await c.req.json().catch(() => ({}))) as { body?: unknown }
+  const body = typeof b.body === 'string' ? b.body : ''
+  if (!body.trim()) return c.json({ ok: false, error: 'write your follow-up' }, 400)
   onb.setFollowupTemplate(c.get('tenantId'), body)
   return c.json({ ok: true })
 })
