@@ -509,7 +509,14 @@ export function onboardingView(_email: string): string {
          var trig=document.getElementById('obAddLink');if(trig)trig.addEventListener('click',function(e){e.preventDefault();open();});
          document.getElementById('lnkCancel').addEventListener('click',function(e){e.preventDefault();close();});
          bd.addEventListener('click',function(e){if(e.target===bd)close();});
-         saveEl.addEventListener('click',function(){if(saveEl.disabled)return;localStorage.setItem(KEY,JSON.stringify(rows.filter(function(r){return (r.handle||'').trim();})));close();if(window.__refreshSteps)window.__refreshSteps();});
+         saveEl.addEventListener('click',function(){if(saveEl.disabled)return;
+           var kept=rows.filter(function(r){return (r.handle||'').trim();});
+           localStorage.setItem(KEY,JSON.stringify(kept));
+           var first=kept[0]?(kept[0].handle||'').trim():'';
+           var url=/^https?:\/\//i.test(first)?first:('https://'+first.replace(/^@+/,''));
+           var done=function(){close();if(window.__refreshSteps)window.__refreshSteps();};
+           fetch('/api/onboarding/link',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({link:url})}).then(done,done);
+         });
        })();
      </script>
      <script>
@@ -563,18 +570,33 @@ export function onboardingView(_email: string): string {
            if(typeof s==='number'){tgt.value=tgt.value.slice(0,s)+ins+tgt.value.slice(e);tgt.focus();tgt.selectionStart=tgt.selectionEnd=s+ins.length;}
            else{tgt.value+=ins;tgt.focus();}});});
          document.getElementById('tplSave').addEventListener('click',function(){
-           localStorage.setItem('lepton_email_template',JSON.stringify({name:(document.getElementById('tplName')||{}).value,subject:(document.getElementById('tplSubject')||{}).value,body:(document.getElementById('tplBody')||{}).value}));
-           close();if(pch())pch().style.display='none';
-           if(window.__refreshSteps)window.__refreshSteps();
+           var body=(document.getElementById('tplBody')||{}).value||'';
+           localStorage.setItem('lepton_email_template',JSON.stringify({name:(document.getElementById('tplName')||{}).value,subject:(document.getElementById('tplSubject')||{}).value,body:body}));
+           var done=function(){close();if(pch())pch().style.display='none';if(window.__refreshSteps)window.__refreshSteps();};
+           fetch('/api/onboarding/pitch-template',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({body:body})}).then(done,done);
          });
        })();
      </script>
      <script>
        (function(){
-         function hasLinks(){try{var a=JSON.parse(localStorage.getItem('lepton_portfolio_links'));return Array.isArray(a)&&a.length>0;}catch(_){return false;}}
-         function hasTemplate(){try{return !!JSON.parse(localStorage.getItem('lepton_email_template'));}catch(_){return false;}}
+         // Source of truth is the backend (/api/onboarding); localStorage is only a pre-load fallback.
+         var SNAP=null;
+         function hasLinksLS(){try{var a=JSON.parse(localStorage.getItem('lepton_portfolio_links'));return Array.isArray(a)&&a.length>0;}catch(_){return false;}}
+         function hasTemplateLS(){try{return !!JSON.parse(localStorage.getItem('lepton_email_template'));}catch(_){return false;}}
+         function doneStates(){
+           if(SNAP){
+             var sd=SNAP.stepsDone||[];
+             return [!!SNAP.link, !!SNAP.pitchTemplate, !!SNAP.followupTemplate, sd.indexOf('first_send')>=0, sd.indexOf('ten_pitches')>=0];
+           }
+           return [hasLinksLS(),hasTemplateLS(),false,false,false];
+         }
+         function paintProgress(){
+           var sent=(SNAP&&SNAP.pitchesSent)||0, goal=(SNAP&&SNAP.pitchGoal)||10;
+           var cnt=document.querySelector('.ob-pcount');if(cnt)cnt.textContent=sent+' / '+goal+' emails sent';
+           var fill=document.querySelector('.ob-pfill');if(fill)fill.style.width=Math.min(100,Math.round(sent/goal*100))+'%';
+         }
          function compute(){
-           var done=[hasLinks(),hasTemplate(),false,false,false],prevAll=true;
+           var done=doneStates(),prevAll=true;
            for(var i=0;i<5;i++){
              var el=document.getElementById('ob-s'+(i+1));if(!el)continue;
              var state=done[i]?'done':(prevAll?'active':'locked');
@@ -586,8 +608,11 @@ export function onboardingView(_email: string): string {
              var btn=el.querySelector('.ob-btn');if(btn)btn.style.display=(state==='active')?'inline-flex':'none';
              prevAll=prevAll&&done[i];
            }
+           paintProgress();
          }
-         window.__refreshSteps=compute;compute();
+         function refresh(){return fetch('/api/onboarding').then(function(r){return r.json();}).then(function(j){if(j&&j.ok)SNAP=j;compute();}).catch(function(){compute();});}
+         window.__refreshSteps=refresh;
+         refresh();
        })();
      </script>`,
   )
