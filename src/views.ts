@@ -149,6 +149,16 @@ export function onboardingView(_email: string): string {
     '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
   const refreshIcon =
     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
+  const tickIcon =
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+  const pencilIcon =
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'
+  const fileIcon =
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
+  const sendIcon =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
+  const icoSet = (step: string) =>
+    `<span class="ico-step">${step}</span><span class="ico-done">${tickIcon}</span><span class="ico-lock">${lockIcon}</span>`
 
   const locked = (title: string, note: string, desc: string, extra = ''): string =>
     `<div class="ob-step ob-locked">
@@ -175,26 +185,48 @@ export function onboardingView(_email: string): string {
        <div class="ob-panel">
          <div class="ob-label">ONBOARDING STEPS</div>
 
-         <div class="ob-step ob-active">
-           <div class="ob-ico ob-ico-link">${linkIcon}</div>
+         <div class="ob-step" id="ob-s1" data-badge="&lt;1 min">
+           <div class="ob-ico">${icoSet(linkIcon)}</div>
            <div class="ob-body">
-             <div class="ob-title">Add a Link <span class="ob-badge">&lt;1 min</span></div>
+             <div class="ob-title">Add a Link <span class="ob-tag"></span></div>
              <p class="ob-desc">Social link, website, portfolio, company page — anywhere brands can see your work.</p>
              <a class="ob-btn" href="#" id="obAddLink">ADD A LINK <span class="ob-arrow">→</span></a>
            </div>
          </div>
 
-         <div class="ob-step ob-active">
-           <div class="ob-ico ob-ico-link"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+         <div class="ob-step" id="ob-s2" data-badge="&lt;1 min" data-note="· Finish 1 step above first">
+           <div class="ob-ico">${icoSet(pencilIcon)}</div>
            <div class="ob-body">
-             <div class="ob-title">Create Your Pitch Template <span class="ob-badge">&lt;1 min</span></div>
+             <div class="ob-title">Create Your Pitch Template <span class="ob-tag"></span></div>
              <p class="ob-desc">Write the email Bento sends to brands. Strong templates roughly 3x your reply rate.</p>
              <a class="ob-btn" href="#" id="obPitch">CREATE TEMPLATE <span class="ob-arrow">→</span></a>
            </div>
          </div>
-         ${locked('Create Follow-Up Template', '· Finish 2 steps above first', 'Most replies come from follow-ups — set this up once and Bento sends them automatically.')}
-         ${locked('Send a first email with a follow up', '· Finish 3 steps above first', "Send a pitch with a follow-up scheduled right after — Bento sends it automatically if they don't reply.")}
-         ${locked('Send 10 Brand Pitches', '· Finish 4 steps above first', 'Browse brands matched to your niche and send your first 10 pitches to finish onboarding.', progress)}
+
+         <div class="ob-step" id="ob-s3" data-note="· Finish 2 steps above first">
+           <div class="ob-ico">${icoSet(fileIcon)}</div>
+           <div class="ob-body">
+             <div class="ob-title">Create Follow-Up Template <span class="ob-tag"></span></div>
+             <p class="ob-desc">Most replies come from follow-ups — set this up once and Bento sends them automatically.</p>
+           </div>
+         </div>
+
+         <div class="ob-step" id="ob-s4" data-note="· Finish 3 steps above first">
+           <div class="ob-ico">${icoSet(sendIcon)}</div>
+           <div class="ob-body">
+             <div class="ob-title">Send a first email with a follow up <span class="ob-tag"></span></div>
+             <p class="ob-desc">Send a pitch with a follow-up scheduled right after — Bento sends it automatically if they don't reply.</p>
+           </div>
+         </div>
+
+         <div class="ob-step" id="ob-s5" data-note="· Finish 4 steps above first">
+           <div class="ob-ico">${icoSet(sendIcon)}</div>
+           <div class="ob-body">
+             <div class="ob-title">Send 10 Brand Pitches <span class="ob-tag"></span></div>
+             <p class="ob-desc">Browse brands matched to your niche and send your first 10 pitches to finish onboarding.</p>
+             ${progress}
+           </div>
+         </div>
        </div>
      </div>
 
@@ -270,6 +302,41 @@ export function onboardingView(_email: string): string {
          <div class="pch-foot">
            <button class="pch-back" id="pchBack">BACK</button>
            <button class="pch-gen" id="pchGen">GENERATE PITCH</button>
+         </div>
+       </div>
+     </div>
+     <!-- Modify your template modal -->
+     <div id="tplBackdrop" class="tpl-backdrop" style="display:none">
+       <div class="tpl-modal" role="dialog" aria-modal="true">
+         <button class="tpl-x" id="tplClose">&times;</button>
+         <div class="tpl-h">Modify your template</div>
+
+         <div class="tpl-sel">
+           <select class="tpl-folder"><option>Folder</option></select>
+           <svg class="tpl-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+         </div>
+
+         <label class="tpl-lbl">Template Name <span class="req">*</span></label>
+         <input class="tpl-inp" id="tplName" placeholder="Template Name">
+
+         <label class="tpl-lbl">Subject <span class="req">*</span></label>
+         <div class="tpl-field">
+           <div class="tpl-tags">Personalization Tags: <button class="tpl-tag" data-tag="{First Name}" data-target="tplSubject">{First Name}</button><button class="tpl-tag" data-tag="{Brand Name}" data-target="tplSubject">{Brand Name}</button></div>
+           <input class="tpl-subj" id="tplSubject" placeholder="Email Subject">
+         </div>
+
+         <div class="tpl-field" style="margin-top:16px">
+           <div class="tpl-toolbar">
+             <button type="button" class="tpl-tb" title="Text"><b>T</b></button>
+             <button type="button" class="tpl-tb" title="Link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+           </div>
+           <div class="tpl-tags">Personalization Tags: <button class="tpl-tag" data-tag="{First Name}" data-target="tplBody">{First Name}</button><button class="tpl-tag" data-tag="{Brand Name}" data-target="tplBody">{Brand Name}</button></div>
+           <textarea class="tpl-area" id="tplBody" placeholder="Email Body"></textarea>
+         </div>
+
+         <div class="tpl-foot">
+           <button class="tpl-back" id="tplBack"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="13 8 9 12 13 16"/><line x1="9" y1="12" x2="16" y2="12"/></svg> BACK</button>
+           <button class="tpl-save" id="tplSave">SAVE TEMPLATE</button>
          </div>
        </div>
      </div>
@@ -367,6 +434,42 @@ export function onboardingView(_email: string): string {
        .pch-foot{display:flex;justify-content:space-between;align-items:center;margin-top:34px}
        .pch-back{background:#fff;border:1px solid #cfcfcf;border-radius:12px;padding:14px 30px;font-size:15px;font-weight:700;letter-spacing:.06em;color:#14532d;cursor:pointer;text-transform:uppercase}
        .pch-gen{background:#14532d;border:none;border-radius:12px;padding:15px 32px;font-size:15px;font-weight:700;letter-spacing:.06em;color:#fff;cursor:pointer;text-transform:uppercase}
+
+       /* Modify your template modal */
+       .tpl-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;z-index:210;padding:40px 20px;overflow:auto}
+       .tpl-modal{position:relative;background:#fff;border-radius:16px;width:100%;max-width:720px;padding:34px 40px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+       .tpl-x{position:absolute;top:18px;right:24px;background:none;border:none;font-size:26px;line-height:1;color:#b3b3b3;cursor:pointer}
+       .tpl-h{font-size:30px;font-weight:700;color:#111;margin-bottom:22px;letter-spacing:-.01em}
+       .tpl-sel{position:relative;display:inline-block;margin-bottom:6px}
+       .tpl-folder{appearance:none;-webkit-appearance:none;background:#fff;border:1px solid #d9d9d9;border-radius:10px;padding:12px 42px 12px 16px;font-size:16px;color:#111;cursor:pointer;min-width:240px}
+       .tpl-folder:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .tpl-chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#666}
+       .tpl-lbl{display:block;font-size:17px;font-weight:700;color:#111;margin:18px 0 8px}
+       .tpl-lbl .req{color:#111}
+       .tpl-inp{width:100%;box-sizing:border-box;border:1px solid #d9d9d9;border-radius:12px;padding:15px 16px;font-size:16px;color:#111}
+       .tpl-inp:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .tpl-field{border:1px solid #d9d9d9;border-radius:12px;overflow:hidden}
+       .tpl-toolbar{display:flex;align-items:center;gap:4px;background:#fff;padding:10px 12px;border-bottom:1px solid #eee}
+       .tpl-tb{background:none;border:none;cursor:pointer;color:#222;padding:6px 9px;border-radius:6px;font-size:16px;display:flex;align-items:center}
+       .tpl-tb:hover{background:#f0f0f0}
+       .tpl-tags{background:#f3f3f3;padding:11px 16px;font-size:15px;color:#333;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+       .tpl-tag{background:#fff;border:1px solid #c5bdf0;color:#6b5fd0;border-radius:999px;padding:4px 12px;font-size:14px;cursor:pointer}
+       .tpl-subj,.tpl-area{width:100%;box-sizing:border-box;border:none;outline:none;padding:15px 16px;font-size:16px;color:#111;font-family:inherit;background:transparent}
+       .tpl-area{min-height:150px;resize:vertical;display:block}
+       .tpl-foot{display:flex;justify-content:center;gap:18px;margin-top:28px}
+       .tpl-back{background:#f1f1f1;border:none;border-radius:12px;padding:14px 26px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#14532d;cursor:pointer;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px}
+       .tpl-save{background:#14532d;border:none;border-radius:12px;padding:14px 30px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#fff;cursor:pointer;text-transform:uppercase}
+
+       /* onboarding step states (tick-off + sequential lock) */
+       .ob-done{background:#fff;border:1px solid #cfe0d6}
+       .ob-ico>span{display:none;align-items:center;justify-content:center}
+       .ob-active .ob-ico{background:#efefef;color:#000}
+       .ob-active .ico-step{display:flex}
+       .ob-done .ob-ico{background:#14532d;color:#fff}
+       .ob-done .ico-done{display:flex}
+       .ob-locked .ob-ico{background:#ececec;color:#aaa}
+       .ob-locked .ico-lock{display:flex}
+       .ob-done .ob-title{color:#000}
      </style>
      <script>
        (function(){
@@ -398,7 +501,7 @@ export function onboardingView(_email: string): string {
          var trig=document.getElementById('obAddLink');if(trig)trig.addEventListener('click',function(e){e.preventDefault();open();});
          document.getElementById('lnkCancel').addEventListener('click',function(e){e.preventDefault();close();});
          bd.addEventListener('click',function(e){if(e.target===bd)close();});
-         saveEl.addEventListener('click',function(){if(saveEl.disabled)return;localStorage.setItem(KEY,JSON.stringify(rows.filter(function(r){return (r.handle||'').trim();})));close();});
+         saveEl.addEventListener('click',function(){if(saveEl.disabled)return;localStorage.setItem(KEY,JSON.stringify(rows.filter(function(r){return (r.handle||'').trim();})));close();if(window.__refreshSteps)window.__refreshSteps();});
        })();
      </script>
      <script>
@@ -433,7 +536,50 @@ export function onboardingView(_email: string): string {
          document.getElementById('pchGen').addEventListener('click',function(){
            var data={mode:chosenMode(),about:document.querySelector('#ddAbout .pf-dd-val').textContent,aboutUrl:(document.getElementById('aboutUrl')||{}).value,aboutText:(document.getElementById('aboutText')||{}).value,work:document.querySelector('#ddWork .pf-dd-val').textContent,workUrl:(document.getElementById('workUrl')||{}).value};
            localStorage.setItem('lepton_pitch_setup',JSON.stringify(data));close();
+           if(window.__openTemplate)window.__openTemplate();
          });
+       })();
+     </script>
+     <script>
+       (function(){
+         var bd=document.getElementById('tplBackdrop');if(!bd)return;
+         window.__openTemplate=function(){bd.style.display='flex';};
+         function close(){bd.style.display='none';}
+         var pch=function(){return document.getElementById('pchBackdrop');};
+         document.getElementById('tplClose').addEventListener('click',function(){close();if(pch())pch().style.display='none';});
+         document.getElementById('tplBack').addEventListener('click',function(){close();if(pch())pch().style.display='flex';});
+         bd.addEventListener('click',function(e){if(e.target===bd)close();});
+         bd.querySelectorAll('.tpl-tag').forEach(function(t){t.addEventListener('click',function(){
+           var tgt=document.getElementById(t.getAttribute('data-target'));if(!tgt)return;
+           var ins=t.getAttribute('data-tag'),s=tgt.selectionStart,e=tgt.selectionEnd;
+           if(typeof s==='number'){tgt.value=tgt.value.slice(0,s)+ins+tgt.value.slice(e);tgt.focus();tgt.selectionStart=tgt.selectionEnd=s+ins.length;}
+           else{tgt.value+=ins;tgt.focus();}});});
+         document.getElementById('tplSave').addEventListener('click',function(){
+           localStorage.setItem('lepton_email_template',JSON.stringify({name:(document.getElementById('tplName')||{}).value,subject:(document.getElementById('tplSubject')||{}).value,body:(document.getElementById('tplBody')||{}).value}));
+           close();if(pch())pch().style.display='none';
+           if(window.__refreshSteps)window.__refreshSteps();
+         });
+       })();
+     </script>
+     <script>
+       (function(){
+         function hasLinks(){try{var a=JSON.parse(localStorage.getItem('lepton_portfolio_links'));return Array.isArray(a)&&a.length>0;}catch(_){return false;}}
+         function hasTemplate(){try{return !!JSON.parse(localStorage.getItem('lepton_email_template'));}catch(_){return false;}}
+         function compute(){
+           var done=[hasLinks(),hasTemplate(),false,false,false],prevAll=true;
+           for(var i=0;i<5;i++){
+             var el=document.getElementById('ob-s'+(i+1));if(!el)continue;
+             var state=done[i]?'done':(prevAll?'active':'locked');
+             el.classList.remove('ob-active','ob-locked','ob-done');el.classList.add('ob-'+state);
+             var tag=el.querySelector('.ob-tag');
+             if(tag){if(state==='active')tag.innerHTML=el.getAttribute('data-badge')?'<span class="ob-badge">'+el.getAttribute('data-badge')+'</span>':'';
+               else if(state==='locked')tag.innerHTML=el.getAttribute('data-note')?'<span class="ob-note">'+el.getAttribute('data-note')+'</span>':'';
+               else tag.innerHTML='';}
+             var btn=el.querySelector('.ob-btn');if(btn)btn.style.display=(state==='active')?'inline-flex':'none';
+             prevAll=prevAll&&done[i];
+           }
+         }
+         window.__refreshSteps=compute;compute();
        })();
      </script>`,
   )
