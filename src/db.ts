@@ -156,6 +156,14 @@ addColumn('tenants', 'google_refresh_token', 'TEXT') // long-lived refresh token
 addColumn('tenants', 'google_token_expires_at', 'INTEGER') // epoch ms; refreshed lazily before expiry
 addColumn('tenants', 'google_connected_at', 'INTEGER') // when they first connected Google
 
+// --- reply-driven Attio stage write-back ---
+addColumn('tenants', 'attio_stage_sync', 'INTEGER') // 1 = reply-triggered stage assessment on
+addColumn('tenants', 'attio_sync_config', 'TEXT') // JSON SyncConfig (salesListId, stageOptions, etc.)
+addColumn('tenants', 'business_description', 'TEXT') // one-liner about their business (LLM prompt context)
+addColumn('contacts', 'attio_synced_at', 'INTEGER') // last successful assessment (debounce)
+addColumn('contacts', 'attio_synced_stage', 'TEXT') // last stage written to Attio
+addColumn('contacts', 'attio_summary_hash', 'TEXT') // hash of last summary written
+
 // The checklist: which WhatsApp numbers a campaign sends from (sends rotate across them).
 db.exec(`
   CREATE TABLE IF NOT EXISTS campaign_accounts (
@@ -250,6 +258,9 @@ export interface TenantRow {
   google_refresh_token?: string | null
   google_token_expires_at?: number | null
   google_connected_at?: number | null
+  attio_stage_sync?: number | null
+  attio_sync_config?: string | null
+  business_description?: string | null
 }
 
 export interface OnboardingRow {
@@ -339,6 +350,9 @@ export interface ContactRow {
   last_messaged_at: number | null
   wa_registered: number | null
   wa_checked_at: number | null
+  attio_synced_at?: number | null
+  attio_synced_stage?: string | null
+  attio_summary_hash?: string | null
 }
 
 export interface CampaignRow {
