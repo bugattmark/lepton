@@ -136,6 +136,11 @@ addColumn('campaign_contacts', 'account_id', 'TEXT') // which number sends THIS 
 addColumn('campaign_contacts', 'node_id', 'TEXT') // where this lead currently sits in the sequence
 addColumn('campaign_contacts', 'next_due_at', 'INTEGER') // earliest time to act on this lead (wait blocks)
 
+// --- suppression + is-on-WhatsApp gate ---
+addColumn('contacts', 'last_messaged_at', 'INTEGER') // last successful WhatsApp send (10-day suppression window)
+addColumn('contacts', 'wa_registered', 'INTEGER') // 1/0 = number is/ isn't on WhatsApp (null = unchecked)
+addColumn('contacts', 'wa_checked_at', 'INTEGER') // when we last ran the onWhatsApp check (cache)
+
 // The checklist: which WhatsApp numbers a campaign sends from (sends rotate across them).
 db.exec(`
   CREATE TABLE IF NOT EXISTS campaign_accounts (
@@ -208,6 +213,9 @@ export interface ContactRow {
   instagram_handle: string | null
   event_link: string | null
   category: string | null
+  last_messaged_at: number | null
+  wa_registered: number | null
+  wa_checked_at: number | null
 }
 
 export interface CampaignRow {
