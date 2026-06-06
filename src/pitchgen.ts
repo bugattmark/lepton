@@ -19,7 +19,10 @@ const ENDPOINT = 'https://api.openai.com/v1/responses'
 
 export const pitchGenAvailable = () => !!process.env.OPENAI_API_KEY
 
+export type PitchKind = 'outreach' | 'followup'
+
 export interface PitchInput {
+  kind?: PitchKind // 'outreach' (default) = first message; 'followup' = the short chase
   // creator (from the onboarding profile)
   name?: string
   roles?: string[] // "who are you" — niche/role
@@ -33,6 +36,8 @@ export interface PitchInput {
   workKind?: string // e.g. "Top performing post", "Social media page"
   workUrl?: string
   workText?: string // text fetched from the best-work URL
+  // followup only: the outreach pitch this is chasing, so the follow-up can reference it.
+  priorPitchBody?: string
 }
 
 export interface PitchOutput {
@@ -55,30 +60,51 @@ function buildContext(input: PitchInput): string {
   if (input.portfolioText) lines.push(`Portfolio page content:\n${input.portfolioText.slice(0, 2500)}`)
   if (input.workKind) lines.push(`Best work they want to highlight: ${input.workKind}${input.workUrl ? ` (${input.workUrl})` : ''}`)
   if (input.workText) lines.push(`Best-work page content:\n${input.workText.slice(0, 2000)}`)
+  if (input.kind === 'followup' && input.priorPitchBody) {
+    lines.push(`The original pitch this follow-up is chasing (do not repeat it verbatim):\n${input.priorPitchBody.slice(0, 1500)}`)
+  }
   return lines.join('\n') || '(no extra details provided)'
 }
 
-const TASK =
-  `You are writing a REUSABLE cold EMAIL pitch TEMPLATE for the creator below to send to brands.\n` +
+// Shared placeholder + best-work rules both kinds obey.
+const COMMON_RULES =
   `Because it's a template reused across many brands, DO NOT name a specific brand or recipient — ` +
   `instead use these placeholders exactly where a brand-specific or recipient-specific value belongs:\n` +
   `  ${PLACEHOLDERS}\n` +
   `Use {{first_name}} (and optionally {{last_name}}) to address the recipient, and {{brand_name}} ` +
   `wherever the brand's name would go. Use double curly braces exactly as shown. Do NOT invent any ` +
-  `other placeholder syntax, and never leave a real name hardcoded.\n\n` +
-  `Follow the pitch guide's structure, length (cold email = 90–150 words), and hard rules. ` +
+  `other placeholder syntax, and never leave a real name hardcoded.\n` +
   `Never invent stats, results, or past clients that aren't in the creator's details — if a proof ` +
-  `point is missing, lean on audience fit and the idea instead.\n\n` +
+  `point is missing, lean on audience fit and the idea instead.\n` +
+  `When a "best work" link is provided above, you MAY reference that best post/work and include its ` +
+  `exact URL inline (e.g. "a recent top performing post: <url>") so the brand can click through. ` +
+  `Only use the URL given — never fabricate a link.`
+
+const TASK_OUTREACH =
+  `You are writing a REUSABLE cold EMAIL pitch TEMPLATE for the creator below to send to brands.\n` +
+  COMMON_RULES + `\n\n` +
+  `Follow the pitch guide's structure, length (cold email = 90–150 words), and hard rules.\n\n` +
   `Return ONLY a JSON object: {"subject": "...", "body": "..."}. The subject follows the guide's ` +
   `"[Creator] x {{brand_name}} — [idea]" shape. The body is the full email with real line breaks (\\n).`
+
+const TASK_FOLLOWUP =
+  `You are writing a REUSABLE FOLLOW-UP EMAIL TEMPLATE — a short, polite chase sent when the brand ` +
+  `did NOT reply to the creator's first pitch. It must be MUCH SHORTER than a cold pitch: ` +
+  `40–70 words, 2–4 sentences. Briefly reference the earlier note, restate the value in one line, ` +
+  `and end with a soft ask (e.g. point me to the right person / open to a quick chat).\n` +
+  COMMON_RULES + `\n\n` +
+  `Return ONLY a JSON object: {"subject": "...", "body": "..."}. The subject should read like a reply ` +
+  `to the original, e.g. "Re: [Creator] x {{brand_name}}". The body is the full email with real line breaks (\\n).`
 
 export async function generate(input: PitchInput): Promise<PitchOutput | null> {
   const key = process.env.OPENAI_API_KEY
   if (!key) return null
 
+  const task = input.kind === 'followup' ? TASK_FOLLOWUP : TASK_OUTREACH
+
   const body = JSON.stringify({
     model: MODEL,
-    instructions: `${GUIDE}\n\n---\n\n${TASK}`,
+    instructions: `${GUIDE}\n\n---\n\n${task}`,
     input: `CREATOR DETAILS:\n${buildContext(input)}`,
     reasoning: { effort: 'low' },
     text: {

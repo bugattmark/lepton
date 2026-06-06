@@ -150,7 +150,7 @@ export function authView(mode: 'login' | 'signup', error?: string): string {
 }
 
 // Onboarding dashboard (/dashboard). Layout + copy mirror the reference exactly; rendered B&W.
-export function onboardingView(_email: string): string {
+export function onboardingView(email: string): string {
   const linkIcon =
     '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
   const lockIcon =
@@ -178,6 +178,7 @@ export function onboardingView(_email: string): string {
 
   return page(
     'Dashboard',
+    dashNav(email, 'dashboard') +
     `<div class="ob-page">
        <div class="ob-panel">
          <div class="ob-label">ONBOARDING STEPS</div>
@@ -200,19 +201,12 @@ export function onboardingView(_email: string): string {
            </div>
          </div>
 
-         <div class="ob-step" id="ob-s3" data-note="· Finish 2 steps above first">
+         <div class="ob-step" id="ob-s3" data-badge="&lt;1 min" data-note="· Finish 2 steps above first">
            <div class="ob-ico">${icoSet(fileIcon)}</div>
            <div class="ob-body">
              <div class="ob-title">Create Follow-Up Template <span class="ob-tag"></span></div>
              <p class="ob-desc">Most replies come from follow-ups — set this up once and Bento sends them automatically.</p>
-           </div>
-         </div>
-
-         <div class="ob-step" id="ob-s4" data-note="· Finish 3 steps above first">
-           <div class="ob-ico">${icoSet(sendIcon)}</div>
-           <div class="ob-body">
-             <div class="ob-title">Send a first email with a follow up <span class="ob-tag"></span></div>
-             <p class="ob-desc">Send a pitch with a follow-up scheduled right after — Bento sends it automatically if they don't reply.</p>
+             <a class="ob-btn" href="#" id="obFollowup">CREATE TEMPLATE <span class="ob-arrow">→</span></a>
            </div>
          </div>
        </div>
@@ -237,7 +231,7 @@ export function onboardingView(_email: string): string {
      <div id="pchBackdrop" class="pch-backdrop" style="display:none">
        <div class="pch-modal" role="dialog" aria-modal="true">
          <button class="pch-x" id="pchClose">&times;</button>
-         <div class="pch-h">How do you want to write your pitch?</div>
+         <div class="pch-h" id="pchH">How do you want to write your pitch?</div>
 
          <div class="pch-cards">
            <div class="pch-card sel" data-v="ai">
@@ -299,9 +293,15 @@ export function onboardingView(_email: string): string {
          <button class="tpl-x" id="tplClose">&times;</button>
          <div class="tpl-h">Modify your template</div>
 
-         <div class="tpl-sel">
-           <select class="tpl-folder"><option>Folder</option></select>
-           <svg class="tpl-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+         <div class="tpl-type">
+           <div class="tpl-type-card sel" data-v="outreach">
+             <div class="tpl-type-t">Outreach</div>
+             <div class="tpl-type-d">Your first message to a brand to introduce yourself</div>
+           </div>
+           <div class="tpl-type-card" data-v="followup">
+             <div class="tpl-type-t">Followup</div>
+             <div class="tpl-type-d">A short email if they didn't reply</div>
+           </div>
          </div>
 
          <label class="tpl-lbl">Template Name <span class="req">*</span></label>
@@ -324,8 +324,10 @@ export function onboardingView(_email: string): string {
 
          <div class="tpl-foot">
            <button class="tpl-back" id="tplBack"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="13 8 9 12 13 16"/><line x1="9" y1="12" x2="16" y2="12"/></svg> BACK</button>
+           <button class="tpl-savenew" id="tplSaveNew">SAVE AS NEW TEMPLATE</button>
            <button class="tpl-save" id="tplSave">SAVE TEMPLATE</button>
          </div>
+         <div class="tpl-err" id="tplErr" style="display:none"></div>
        </div>
      </div>
      <style>
@@ -440,7 +442,15 @@ export function onboardingView(_email: string): string {
        .tpl-area{min-height:150px;resize:vertical;display:block}
        .tpl-foot{display:flex;justify-content:center;gap:18px;margin-top:28px}
        .tpl-back{background:#f1f1f1;border:none;border-radius:12px;padding:14px 26px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#14532d;cursor:pointer;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px}
+       .tpl-savenew{background:#fff;border:1px solid #14532d;border-radius:12px;padding:14px 26px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#14532d;cursor:pointer;text-transform:uppercase}
        .tpl-save{background:#14532d;border:none;border-radius:12px;padding:14px 30px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#fff;cursor:pointer;text-transform:uppercase}
+       .tpl-save:disabled,.tpl-savenew:disabled{opacity:.55;cursor:default}
+       .tpl-type{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px}
+       .tpl-type-card{border:1px solid #d9d9d9;border-radius:14px;padding:20px 22px;cursor:pointer}
+       .tpl-type-card.sel{border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .tpl-type-t{font-size:19px;font-weight:700;color:#111}
+       .tpl-type-d{font-size:14px;color:#777;margin-top:6px;line-height:1.4}
+       .tpl-err{margin-top:14px;background:#fdecec;border:1px solid #f3b4b4;color:#a12626;border-radius:10px;padding:12px 16px;font-size:14px;font-weight:600;text-align:center}
 
        /* onboarding step states (tick-off + sequential lock) */
        .ob-done{background:#fff;border:1px solid #cfe0d6}
@@ -516,39 +526,55 @@ export function onboardingView(_email: string): string {
          var cards=bd.querySelectorAll('.pch-card');
          cards.forEach(function(c){c.addEventListener('click',function(){cards.forEach(function(x){x.classList.remove('sel');});c.classList.add('sel');});});
          function chosenMode(){var s=bd.querySelector('.pch-card.sel');return s?s.getAttribute('data-v'):'ai';}
-         function open(){bd.style.display='flex';}
+         // The same modal drives both the pitch (outreach) and the follow-up flows; the kind decides
+         // the heading, which generate endpoint to call, and which template type to open after.
+         var kind='outreach';
+         var CFG={outreach:{h:'How do you want to write your pitch?',ep:'/api/onboarding/generate-pitch',noun:'pitch'},
+                  followup:{h:'How do you want to write your follow-up?',ep:'/api/onboarding/generate-followup',noun:'follow-up'}};
+         function open(k){kind=(k==='followup')?'followup':'outreach';var h=document.getElementById('pchH');if(h)h.textContent=CFG[kind].h;bd.style.display='flex';}
          function close(){bd.style.display='none';}
-         var t=document.getElementById('obPitch');if(t)t.addEventListener('click',function(e){e.preventDefault();open();});
+         var t=document.getElementById('obPitch');if(t)t.addEventListener('click',function(e){e.preventDefault();open('outreach');});
+         var f=document.getElementById('obFollowup');if(f)f.addEventListener('click',function(e){e.preventDefault();open('followup');});
          document.getElementById('pchClose').addEventListener('click',close);
          document.getElementById('pchBack').addEventListener('click',close);
          bd.addEventListener('click',function(e){if(e.target===bd)close();});
          var genBtn=document.getElementById('pchGen');
          genBtn.addEventListener('click',function(){
+           var cfg=CFG[kind];
            var data={mode:chosenMode(),about:document.querySelector('#ddAbout .pf-dd-val').textContent,aboutUrl:(document.getElementById('aboutUrl')||{}).value,aboutText:(document.getElementById('aboutText')||{}).value,work:document.querySelector('#ddWork .pf-dd-val').textContent,workUrl:(document.getElementById('workUrl')||{}).value};
-           localStorage.setItem('lepton_pitch_setup',JSON.stringify(data));
-           if(data.mode!=='ai'){close();if(window.__openTemplate)window.__openTemplate();return;}
+           if(data.mode!=='ai'){close();if(window.__openTemplate)window.__openTemplate(null,kind);return;}
            // Bento writes it: ask the server (GPT-5.4-mini + pitch guide) for a draft, then open the editor prefilled.
            genBtn.disabled=true;var label=genBtn.textContent;genBtn.textContent='GENERATING…';
-           fetch('/api/onboarding/generate-pitch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)})
+           fetch(cfg.ep,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)})
              .then(function(r){return r.json();})
              .then(function(j){
                genBtn.disabled=false;genBtn.textContent=label;
                close();
-               if(window.__openTemplate)window.__openTemplate(j&&j.ok?{subject:j.subject,body:j.body}:null);
-               if(!(j&&j.ok))alert((j&&j.error)||'Could not generate a pitch. You can write your own.');
+               if(window.__openTemplate)window.__openTemplate(j&&j.ok?{subject:j.subject,body:j.body}:null,kind);
+               if(!(j&&j.ok))alert((j&&j.error)||('Could not generate a '+cfg.noun+'. You can write your own.'));
              })
-             .catch(function(){genBtn.disabled=false;genBtn.textContent=label;close();if(window.__openTemplate)window.__openTemplate(null);});
+             .catch(function(){genBtn.disabled=false;genBtn.textContent=label;close();if(window.__openTemplate)window.__openTemplate(null,kind);});
          });
        })();
      </script>
      <script>
        (function(){
          var bd=document.getElementById('tplBackdrop');if(!bd)return;
-         window.__openTemplate=function(prefill){
-           if(prefill){
-             var s=document.getElementById('tplSubject');if(s&&prefill.subject)s.value=prefill.subject;
-             var b=document.getElementById('tplBody');if(b&&prefill.body)b.value=prefill.body;
-           }
+         var typeCards=bd.querySelectorAll('.tpl-type-card');
+         var errEl=document.getElementById('tplErr');
+         // currentId tracks which saved template is being edited (null = unsaved/new draft).
+         var currentId=null;
+         function setType(v){typeCards.forEach(function(c){c.classList.toggle('sel',c.getAttribute('data-v')===v);});}
+         function chosenType(){var s=bd.querySelector('.tpl-type-card.sel');return s?s.getAttribute('data-v'):'outreach';}
+         typeCards.forEach(function(c){c.addEventListener('click',function(){setType(c.getAttribute('data-v'));});});
+         function showErr(m){if(!errEl)return;errEl.textContent=m;errEl.style.display='block';}
+         function clearErr(){if(errEl){errEl.textContent='';errEl.style.display='none';}}
+         window.__openTemplate=function(prefill,kind){
+           clearErr();currentId=null;
+           setType(kind==='followup'?'followup':'outreach');
+           var name=document.getElementById('tplName');if(name)name.value='';
+           var s=document.getElementById('tplSubject');if(s)s.value=(prefill&&prefill.subject)||'';
+           var b=document.getElementById('tplBody');if(b)b.value=(prefill&&prefill.body)||'';
            bd.style.display='flex';
          };
          function close(){bd.style.display='none';}
@@ -561,12 +587,30 @@ export function onboardingView(_email: string): string {
            var ins=t.getAttribute('data-tag'),s=tgt.selectionStart,e=tgt.selectionEnd;
            if(typeof s==='number'){tgt.value=tgt.value.slice(0,s)+ins+tgt.value.slice(e);tgt.focus();tgt.selectionStart=tgt.selectionEnd=s+ins.length;}
            else{tgt.value+=ins;tgt.focus();}});});
-         document.getElementById('tplSave').addEventListener('click',function(){
-           var body=(document.getElementById('tplBody')||{}).value||'';
-           localStorage.setItem('lepton_email_template',JSON.stringify({name:(document.getElementById('tplName')||{}).value,subject:(document.getElementById('tplSubject')||{}).value,body:body}));
-           var done=function(){close();if(pch())pch().style.display='none';if(window.__refreshSteps)window.__refreshSteps();};
-           fetch('/api/onboarding/pitch-template',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({body:body})}).then(done,done);
-         });
+         var saveBtn=document.getElementById('tplSave'),newBtn=document.getElementById('tplSaveNew');
+         // Persist to the templates table. asNew always inserts; otherwise update-in-place when we
+         // already have an id. Errors are surfaced loudly in the modal — never silently swallowed.
+         function persist(asNew,btn){
+           clearErr();
+           var payload={type:chosenType(),name:(document.getElementById('tplName')||{}).value||'',subject:(document.getElementById('tplSubject')||{}).value||'',body:(document.getElementById('tplBody')||{}).value||''};
+           if(!payload.name.trim())return showErr('Give your template a name.');
+           if(!payload.body.trim())return showErr('Your template body is empty.');
+           var useId=(!asNew&&currentId!=null);
+           var url=useId?('/api/templates/'+currentId):'/api/templates';
+           var method=useId?'PUT':'POST';
+           var label=btn.textContent;saveBtn.disabled=true;newBtn.disabled=true;btn.textContent='SAVING…';
+           fetch(url,{method:method,headers:{'content-type':'application/json'},body:JSON.stringify(payload)})
+             .then(function(r){return r.json().then(function(j){return{status:r.status,j:j};});})
+             .then(function(res){
+               saveBtn.disabled=false;newBtn.disabled=false;btn.textContent=label;
+               if(!res.j||!res.j.ok){showErr((res.j&&res.j.error)||('Save failed ('+res.status+'). Please try again.'));return;}
+               currentId=res.j.template&&res.j.template.id;
+               close();if(pch())pch().style.display='none';if(window.__refreshSteps)window.__refreshSteps();
+             })
+             .catch(function(err){saveBtn.disabled=false;newBtn.disabled=false;btn.textContent=label;showErr('Save failed: '+(err&&err.message||'network error')+'. Please try again.');});
+         }
+         saveBtn.addEventListener('click',function(){persist(false,saveBtn);});
+         newBtn.addEventListener('click',function(){persist(true,newBtn);});
        })();
      </script>
      <script>
@@ -574,17 +618,17 @@ export function onboardingView(_email: string): string {
          // Source of truth is the backend (/api/onboarding); localStorage is only a pre-load fallback.
          var SNAP=null;
          function hasLinksLS(){try{var a=JSON.parse(localStorage.getItem('lepton_portfolio_links'));return Array.isArray(a)&&a.length>0;}catch(_){return false;}}
-         function hasTemplateLS(){try{return !!JSON.parse(localStorage.getItem('lepton_email_template'));}catch(_){return false;}}
+         // 3 steps: Add a Link, Pitch Template, Follow-Up Template. The last ticks once at least
+         // one follow-up template exists (SNAP.followupTemplate) and the prior steps are done.
          function doneStates(){
            if(SNAP){
-             var sd=SNAP.stepsDone||[];
-             return [!!SNAP.link, !!SNAP.pitchTemplate, !!SNAP.followupTemplate, sd.indexOf('first_send')>=0];
+             return [!!SNAP.link, !!SNAP.pitchTemplate, !!SNAP.followupTemplate];
            }
-           return [hasLinksLS(),hasTemplateLS(),false,false];
+           return [hasLinksLS(),false,false];
          }
          function compute(){
            var done=doneStates(),prevAll=true;
-           for(var i=0;i<4;i++){
+           for(var i=0;i<3;i++){
              var el=document.getElementById('ob-s'+(i+1));if(!el)continue;
              var state=done[i]?'done':(prevAll?'active':'locked');
              el.classList.remove('ob-active','ob-locked','ob-done');el.classList.add('ob-'+state);
@@ -787,16 +831,119 @@ export function startOnboardingView(_email: string): string {
   )
 }
 
-// Shared top bar with the three product tabs (Source / Qualifying / Outbound).
+// Shared right side of the top bar (account + logout), reused by both navs.
+function navAccount(email: string): string {
+  return `<div class="row"><span class="muted" style="align-self:center">${email}</span>
+       <form method="post" action="/logout"><button class="btn ghost" type="submit">Log out</button></form>
+     </div>`
+}
+
+// Pipeline top bar — the lead pipeline tabs (Source / Qualifying / Outbound). Brands is NOT here;
+// it lives on the dashboard nav (dashNav). Logo returns to the dashboard.
 function shellNav(email: string, active: 'source' | 'qualifying' | 'outbound'): string {
   const tab = (href: string, label: string, key: string) =>
     `<a href="${href}" class="ptab${active === key ? ' on' : ''}">${label}</a>`
-  return `<div class="nav"><a class="brand" href="/outbound" style="text-decoration:none"><span class="mark"></span>Lepton</a>
+  return `<div class="nav"><a class="brand" href="/dashboard" style="text-decoration:none"><span class="mark"></span>Lepton</a>
      <div class="ptabs">${tab('/source', 'Source', 'source')}${tab('/qualifying', 'Qualifying', 'qualifying')}${tab('/outbound', 'Outbound', 'outbound')}</div>
-     <div class="row"><span class="muted" style="align-self:center">${email}</span>
-       <form method="post" action="/logout"><button class="btn ghost" type="submit">Log out</button></form>
-     </div>
+     ${navAccount(email)}
    </div>`
+}
+
+// Dashboard top bar — the dashboard home + the Brands directory live here, separate from the
+// pipeline tabs above.
+function dashNav(email: string, active: 'dashboard' | 'brands'): string {
+  const tab = (href: string, label: string, key: string) =>
+    `<a href="${href}" class="ptab${active === key ? ' on' : ''}">${label}</a>`
+  return `<div class="nav"><a class="brand" href="/dashboard" style="text-decoration:none"><span class="mark"></span>Lepton</a>
+     <div class="ptabs">${tab('/dashboard', 'Dashboard', 'dashboard')}${tab('/dashboard/brands', 'Brands', 'brands')}</div>
+     ${navAccount(email)}
+   </div>`
+}
+
+export function brandsView(email: string): string {
+  return page(
+    'Brands — Lepton',
+    dashNav(email, 'brands') +
+      `<div class="wrap" style="max-width:1320px">
+       <div class="flex"><h3 style="margin:0">Brands directory</h3>
+         <div class="row2">
+           <select id="bCat" style="width:240px"><option value="">All categories</option></select>
+           <input id="bSearch" placeholder="Search name, @handle, website, country…" style="width:320px">
+           <span class="muted" id="bCount">—</span>
+         </div>
+       </div>
+       <div id="bGrid" class="bgrid mt"></div>
+       <div class="row mt" style="justify-content:center"><button class="btn ghost" id="bMore" style="display:none">Load more</button></div>
+       <p class="hint" id="bEmpty" style="display:none;text-align:center">No brands yet.</p>
+     </div>
+     <style>
+       .bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px}
+       .bcard{border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+       .bcard .top{display:flex;gap:12px;align-items:center}
+       .bcard .logo{width:48px;height:48px;border-radius:50%;object-fit:cover;background:#f3f3f3;flex:0 0 48px}
+       .bcard .nm{font-weight:700;font-size:16px;line-height:1.2}
+       .bcard .sub{font-size:13px;color:var(--muted)}
+       .bcard .sub a{color:var(--muted)}
+       .bcard .desc{font-size:13px;color:#333;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+       .bcard .tags{display:flex;flex-wrap:wrap;gap:6px}
+       .bcard .ct{font-size:12px;color:#333;border-top:1px solid var(--line);padding-top:8px}
+       .bcard .ct b{font-weight:600}
+     </style>
+     <script>
+       (function(){
+         var page=0, size=60, q='', cat='', total=0, loading=false;
+         var grid=document.getElementById('bGrid'), more=document.getElementById('bMore'),
+             cnt=document.getElementById('bCount'), empty=document.getElementById('bEmpty'),
+             search=document.getElementById('bSearch'), catSel=document.getElementById('bCat');
+         function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+         function fnum(n){if(n==null)return null;if(n>=1000000)return (n/1000000).toFixed(1).replace(/\.0$/,'')+'M';if(n>=1000)return Math.round(n/1000)+'K';return ''+n;}
+         function cap(s){return s?s.replace(/\\b\\w/g,function(c){return c.toUpperCase();}):s;}
+         function card(b){
+           var cats=(b.categories&&[].concat(b.categories.main||[],b.categories.secondary||[]))||[];
+           var loc=[b.location_city,b.location_region,b.location_country].filter(Boolean).map(cap).join(', ');
+           var c=b.contacts&&b.contacts[0];
+           var sub=[];
+           if(b.followers!=null)sub.push(fnum(b.followers)+' followers');
+           if(b.instagram_handle)sub.push('<a href="'+esc(b.instagram_url||('https://instagram.com/'+b.instagram_handle))+'" target="_blank" rel="noopener">@'+esc(b.instagram_handle)+'</a>');
+           if(b.website)sub.push('<a href="'+esc(b.website)+'" target="_blank" rel="noopener">'+esc(b.website.replace(/^https?:\\/\\//,'').replace(/\\/$/,''))+'</a>');
+           var tags=cats.slice(0,4).map(function(t){return '<span class="pill">'+esc(t)+'</span>';});
+           if(loc)tags.unshift('<span class="pill">'+esc(loc)+'</span>');
+           var contact='';
+           if(c){var who=c.role||c.name||'Contact';var em=c.emailMasked||(c.emailDomain?('•••@'+c.emailDomain):'');contact='<div class="ct"><b>'+esc(who)+'</b>'+(em?(' · '+esc(em)):'')+(c.hunterScore!=null?(' · Hunter '+c.hunterScore):'')+'</div>';}
+           var logo=b.logo_url?'<img class="logo" src="'+esc(b.logo_url)+'" referrerpolicy="no-referrer" onerror="this.style.visibility=\\'hidden\\'">':'<div class="logo"></div>';
+           return '<div class="bcard">'
+             +'<div class="top">'+logo+'<div><div class="nm">'+esc(b.name)+'</div><div class="sub">'+sub.join(' &nbsp;·&nbsp; ')+'</div></div></div>'
+             +(b.description?'<div class="desc">'+esc(b.description)+'</div>':'')
+             +(tags.length?'<div class="tags">'+tags.join('')+'</div>':'')
+             +contact
+           +'</div>';
+         }
+         function load(reset){
+           if(loading)return;loading=true;more.disabled=true;
+           if(reset){page=0;grid.innerHTML='';}
+           fetch('/api/brands?limit='+size+'&offset='+(page*size)+'&search='+encodeURIComponent(q)+'&category='+encodeURIComponent(cat)).then(function(r){return r.json();}).then(function(j){
+             loading=false;more.disabled=false;
+             if(!j||!j.ok)return;
+             total=j.total;
+             cnt.textContent=total.toLocaleString()+' brand'+(total===1?'':'s');
+             (j.brands||[]).forEach(function(b){grid.insertAdjacentHTML('beforeend',card(b));});
+             page++;
+             more.style.display=(page*size<total)?'inline-block':'none';
+             empty.style.display=(total===0)?'block':'none';
+           },function(){loading=false;more.disabled=false;});
+         }
+         var t;search.addEventListener('input',function(){clearTimeout(t);t=setTimeout(function(){q=search.value.trim();load(true);},250);});
+         catSel.addEventListener('change',function(){cat=catSel.value;load(true);});
+         more.addEventListener('click',function(){load(false);});
+         function loadCats(){fetch('/api/brands/categories').then(function(r){return r.json();}).then(function(j){
+           if(!j||!j.ok)return;
+           (j.categories||[]).forEach(function(c){var o=document.createElement('option');o.value=c.name;o.textContent=c.name+' ('+c.count+')';catSel.appendChild(o);});
+         });}
+         loadCats();
+         load(true);
+       })();
+     </script>`,
+  )
 }
 
 export function sourceView(email: string): string {

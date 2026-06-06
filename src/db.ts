@@ -238,6 +238,21 @@ db.exec(`
     completed_at      INTEGER,              -- when all onboarding steps finished (-> /dashboard)
     updated_at        INTEGER NOT NULL
   );
+
+  -- Saved email templates, one row per (tenant, template). The "Modify your template"
+  -- editor reads/writes these; "Save template" updates one, "Save as new template" inserts.
+  -- type splits the first message ('outreach') from the chase ('followup').
+  CREATE TABLE IF NOT EXISTS templates (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id  TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    type       TEXT NOT NULL DEFAULT 'outreach', -- 'outreach' | 'followup'
+    name       TEXT NOT NULL,
+    subject    TEXT NOT NULL DEFAULT '',
+    body       TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_templates_tenant ON templates(tenant_id, type);
 `)
 
 export interface TenantRow {
@@ -278,6 +293,17 @@ export interface OnboardingRow {
   pitches_sent: number
   intake_done_at: number | null
   completed_at: number | null
+  updated_at: number
+}
+
+export interface TemplateRow {
+  id: number
+  tenant_id: string
+  type: string
+  name: string
+  subject: string
+  body: string
+  created_at: number
   updated_at: number
 }
 
