@@ -155,8 +155,6 @@ export function onboardingView(_email: string): string {
     '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
   const lockIcon =
     '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
-  const refreshIcon =
-    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
   const tickIcon =
     '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
   const pencilIcon =
@@ -176,15 +174,6 @@ export function onboardingView(_email: string): string {
          <p class="ob-desc">${desc}</p>
          ${extra}
        </div>
-     </div>`
-
-  const progress =
-    `<div class="ob-progress">
-       <div class="ob-prow">
-         <span class="ob-ptitle">Progress ${refreshIcon}</span>
-         <span class="ob-pcount">0 / 10 emails sent</span>
-       </div>
-       <div class="ob-pbar"><div class="ob-pfill" style="width:0%"></div></div>
      </div>`
 
   return page(
@@ -224,15 +213,6 @@ export function onboardingView(_email: string): string {
            <div class="ob-body">
              <div class="ob-title">Send a first email with a follow up <span class="ob-tag"></span></div>
              <p class="ob-desc">Send a pitch with a follow-up scheduled right after — Bento sends it automatically if they don't reply.</p>
-           </div>
-         </div>
-
-         <div class="ob-step" id="ob-s5" data-note="· Finish 4 steps above first">
-           <div class="ob-ico">${icoSet(sendIcon)}</div>
-           <div class="ob-body">
-             <div class="ob-title">Send 10 Brand Pitches <span class="ob-tag"></span></div>
-             <p class="ob-desc">Browse brands matched to your niche and send your first 10 pitches to finish onboarding.</p>
-             ${progress}
            </div>
          </div>
        </div>
@@ -369,12 +349,6 @@ export function onboardingView(_email: string): string {
        .ob-btn{display:inline-flex;align-items:center;gap:10px;margin-top:16px;background:#fff;color:#000;border:1px solid #000;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer}
        .ob-btn:hover{background:#000;color:#fff}
        .ob-arrow{font-weight:400}
-       .ob-progress{margin-top:18px}
-       .ob-prow{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-       .ob-ptitle{display:inline-flex;align-items:center;gap:8px;font-size:16px;color:#7a7a7a}
-       .ob-pcount{font-size:17px;font-weight:700;color:#000}
-       .ob-pbar{height:8px;border-radius:999px;background:#e5e5e5;overflow:hidden}
-       .ob-pfill{height:100%;background:#000;border-radius:999px}
 
        /* Add Portfolio Link modal */
        .lnk-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
@@ -509,11 +483,11 @@ export function onboardingView(_email: string): string {
          var trig=document.getElementById('obAddLink');if(trig)trig.addEventListener('click',function(e){e.preventDefault();open();});
          document.getElementById('lnkCancel').addEventListener('click',function(e){e.preventDefault();close();});
          bd.addEventListener('click',function(e){if(e.target===bd)close();});
+         function fullUrl(r){var h=(r.handle||'').trim();if(!h)return '';if(/^https?:\/\//i.test(h))return h;var p=(PLAT[r.platform]||PLAT.Portfolio).pre;return p+h.replace(/^@+/,'');}
          saveEl.addEventListener('click',function(){if(saveEl.disabled)return;
            var kept=rows.filter(function(r){return (r.handle||'').trim();});
            localStorage.setItem(KEY,JSON.stringify(kept));
-           var first=kept[0]?(kept[0].handle||'').trim():'';
-           var url=/^https?:\/\//i.test(first)?first:('https://'+first.replace(/^@+/,''));
+           var url=kept[0]?fullUrl(kept[0]):'';
            var done=function(){close();if(window.__refreshSteps)window.__refreshSteps();};
            fetch('/api/onboarding/link',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({link:url})}).then(done,done);
          });
@@ -586,18 +560,13 @@ export function onboardingView(_email: string): string {
          function doneStates(){
            if(SNAP){
              var sd=SNAP.stepsDone||[];
-             return [!!SNAP.link, !!SNAP.pitchTemplate, !!SNAP.followupTemplate, sd.indexOf('first_send')>=0, sd.indexOf('ten_pitches')>=0];
+             return [!!SNAP.link, !!SNAP.pitchTemplate, !!SNAP.followupTemplate, sd.indexOf('first_send')>=0];
            }
-           return [hasLinksLS(),hasTemplateLS(),false,false,false];
-         }
-         function paintProgress(){
-           var sent=(SNAP&&SNAP.pitchesSent)||0, goal=(SNAP&&SNAP.pitchGoal)||10;
-           var cnt=document.querySelector('.ob-pcount');if(cnt)cnt.textContent=sent+' / '+goal+' emails sent';
-           var fill=document.querySelector('.ob-pfill');if(fill)fill.style.width=Math.min(100,Math.round(sent/goal*100))+'%';
+           return [hasLinksLS(),hasTemplateLS(),false,false];
          }
          function compute(){
            var done=doneStates(),prevAll=true;
-           for(var i=0;i<5;i++){
+           for(var i=0;i<4;i++){
              var el=document.getElementById('ob-s'+(i+1));if(!el)continue;
              var state=done[i]?'done':(prevAll?'active':'locked');
              el.classList.remove('ob-active','ob-locked','ob-done');el.classList.add('ob-'+state);
@@ -608,7 +577,6 @@ export function onboardingView(_email: string): string {
              var btn=el.querySelector('.ob-btn');if(btn)btn.style.display=(state==='active')?'inline-flex':'none';
              prevAll=prevAll&&done[i];
            }
-           paintProgress();
          }
          function refresh(){return fetch('/api/onboarding').then(function(r){return r.json();}).then(function(j){if(j&&j.ok)SNAP=j;compute();}).catch(function(){compute();});}
          window.__refreshSteps=refresh;
