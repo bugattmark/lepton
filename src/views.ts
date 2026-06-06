@@ -717,9 +717,18 @@ export function dashboardView(email: string): string {
              '<h5>Lead list</h5>'
              +'<p class="hint">Leads are pulled from this source. Build lists in the <a href="/source">Source</a> tab. Loop a Wait back to this block to keep pulling fresh leads on that cadence.</p>'
              +'<label>Choose a list</label><select id="iList">'+opts+'</select>'
-             +'<div id="iListTbl" class="mt"></div>';
+             +'<div id="iListTbl" class="mt"></div>'
+             +'<div class="row2 mt"><button class="btn ghost sm" id="iAddCsv">Import from CSV</button><button class="btn ghost sm" id="iAddAttio">Import from Attio</button><button class="x" id="iDelList">delete list</button></div>'
+             +'<div id="iCsvBox" class="tbox" style="display:none"><label>List name</label><input id="iCsvName" placeholder="e.g. June IG leads"><label class="mt">Upload CSV <span class="hint">(needs a phone column; instagram / link auto-detected)</span></label><input type="file" id="iCsvFile" accept=".csv,text/csv"><button class="btn sm mt" id="iCsvSave">Save list</button><p class="mono mt" id="iCsvResult"></p></div>'
+             +'<div id="iAttioBox" class="tbox" style="display:none"><label>List name</label><input id="iAtName" placeholder="e.g. Attio – Prospects"><div class="cfg3 mt"><div><label>Object</label><select id="iAtObj"></select></div><div><label>List (optional)</label><select id="iAtList"></select></div><div><label>Phone field</label><select id="iAtPhone"></select></div></div><p class="hint mt">Columns auto-detected from the object — adjust any if needed.</p><div class="cfg3 mt"><div><label>Name</label><select id="iAtName2"></select></div><div><label>Email</label><select id="iAtEmail"></select></div><div><label>IG handle</label><select id="iAtIg"></select></div></div><div class="cfg3 mt"><div><label>Link</label><select id="iAtLink"></select></div><div><label>Channel filter</label><select id="iAtChannel"><option value="">— any channel —</option></select></div><div><label>Has email</label><label class="row2" style="margin:0"><input type="checkbox" id="iAtHasEmail" style="width:auto"> only with email</label></div></div><button class="btn sm mt" id="iAtSave">Save list</button><p class="mono mt" id="iAtResult"></p></div>';
            loadListTable();
            $('#iList').onchange=function(){n.data=n.data||{};n.data.listId=$('#iList').value?Number($('#iList').value):null;renderCanvas();saveCampaign(true);loadListTable();};
+           $('#iDelList').onclick=function(){var id=$('#iList').value;if(!id)return;if(!confirm('Delete this list?'))return;DEL('/api/lists/'+id).then(function(){if(n.data)n.data.listId=null;renderLists();});};
+           $('#iAddCsv').onclick=function(){var b=$('#iCsvBox');b.style.display=b.style.display==='none'?'':'none';$('#iAttioBox').style.display='none';};
+           $('#iAddAttio').onclick=function(){var b=$('#iAttioBox');b.style.display=b.style.display==='none'?'':'none';$('#iCsvBox').style.display='none';if(b.style.display==='')loadAttioObjectsInto();};
+           $('#iCsvSave').onclick=function(){var f=$('#iCsvFile').files[0];if(!f){$('#iCsvResult').textContent='choose a file';return;}var rd=new FileReader();rd.onload=function(){$('#iCsvResult').textContent='uploading…';POST('/api/lists/csv',{name:$('#iCsvName').value||f.name,csv:rd.result}).then(function(j){$('#iCsvResult').textContent=j.ok?('saved ✓ '+j.size+' leads ('+j.noPhone+' had no phone)'):('error: '+(j.error||'failed'));if(j.ok){n.data=n.data||{};n.data.listId=j.id;renderLists().then(function(){saveCampaign(true);renderInspector();});}});};rd.readAsText(f);};
+           $('#iAtSave').onclick=function(){var phone=$('#iAtPhone').value;if(!phone){$('#iAtResult').textContent='pick a phone field';return;}var mapping={phone:phone,name:$('#iAtName2').value||undefined,vars:[]};if($('#iAtEmail').value)mapping.vars.push($('#iAtEmail').value);if($('#iAtIg').value)mapping.vars.push($('#iAtIg').value);if($('#iAtLink').value)mapping.vars.push($('#iAtLink').value);var filter={};if($('#iAtChannel').value)filter.primaryChannel=$('#iAtChannel').value;if($('#iAtHasEmail').checked)filter.hasEmail=true;$('#iAtResult').textContent='saving…';POST('/api/lists/attio',{name:$('#iAtName').value||'Attio list',object:$('#iAtObj').value,listId:$('#iAtList').value,mapping:mapping,filter:filter}).then(function(j){$('#iAtResult').textContent=j.ok?'saved ✓':('error: '+(j.error||'failed'));if(j.ok){n.data=n.data||{};n.data.listId=j.id;renderLists().then(function(){saveCampaign(true);renderInspector();});}});};
+
            return;}
          if(n.type==='wait'){box.innerHTML='<h5>Wait</h5><label>Minutes to wait</label><input type="number" id="iWait" value="'+((n.data&&n.data.minutes)||0)+'"><p class="hint">e.g. 1440 = 1 day. Link this block back to Send to create a follow-up loop.</p>';
            $('#iWait').onchange=function(){n.data.minutes=Number($('#iWait').value)||0;renderCanvas();};return;}
@@ -784,14 +793,25 @@ export function dashboardView(email: string): string {
        function loadAttioObjectsInto(){J('/api/attio/objects').then(function(j){if(!j.ok){if($('#iAtResult'))$('#iAtResult').textContent=j.error||'connect Attio in Connections (left dashboard) first';return;}
          $('#iAtObj').innerHTML=j.objects.map(function(o){return '<option value="'+o.api_slug+'">'+esc(o.plural||o.api_slug)+'</option>';}).join('');$('#iAtObj').onchange=atObjChangeInto;atObjChangeInto();});}
        function atObjChangeInto(){var obj=$('#iAtObj').value;if(!obj)return;
-         Promise.all([J('/api/attio/objects/'+obj+'/attributes'),J('/api/attio/objects/'+obj+'/lists')]).then(function(r){
-           ATTRS=(r[0].ok?r[0].attributes:[]);var lists=(r[1].ok?r[1].lists:[]);
+         Promise.all([J('/api/attio/objects/'+obj+'/attributes'),J('/api/attio/objects/'+obj+'/lists'),J('/api/attio/objects/'+obj+'/suggest')]).then(function(r){
+           ATTRS=(r[0].ok?r[0].attributes:[]);var lists=(r[1].ok?r[1].lists:[]);var sg=(r[2]&&r[2].ok)?r[2]:{};
            $('#iAtList').innerHTML='<option value="">— whole object —</option>'+lists.map(function(l){return '<option value="'+l.id+'">'+esc(l.name)+'</option>';}).join('');
            var opts=ATTRS.map(function(a){return '<option value="'+a.api_slug+'">'+esc(a.title)+' ('+a.type+')</option>';}).join('');
            var none='<option value="">— none —</option>';
-           $('#iAtPhone').innerHTML=opts;$('#iAtName2').innerHTML=none+opts;$('#iAtIg').innerHTML=none+opts;$('#iAtLink').innerHTML=none+opts;
-           var ph=(ATTRS.filter(function(a){return a.type==='phone-number';})[0]||{}).api_slug;if(ph)$('#iAtPhone').value=ph;
-           var nm=(ATTRS.filter(function(a){return a.type==='personal-name';})[0]||{}).api_slug;if(nm)$('#iAtName2').value=nm;});}
+           $('#iAtPhone').innerHTML=opts;$('#iAtName2').innerHTML=none+opts;$('#iAtEmail').innerHTML=none+opts;$('#iAtIg').innerHTML=none+opts;$('#iAtLink').innerHTML=none+opts;
+           /* auto-fill from the server's suggestion (falls back to type-based picks) */
+           var m=sg.mapping||{};
+           var phType=(ATTRS.filter(function(a){return a.type==='phone-number';})[0]||{}).api_slug;
+           var nmType=(ATTRS.filter(function(a){return a.type==='personal-name';})[0]||{}).api_slug;
+           if(m.phone||phType)$('#iAtPhone').value=m.phone||phType;
+           if(m.name||nmType)$('#iAtName2').value=m.name||nmType;
+           if(m.email)$('#iAtEmail').value=m.email;
+           if(m.instagram)$('#iAtIg').value=m.instagram;
+           if(m.link)$('#iAtLink').value=m.link;
+           /* channel filter options + has-email availability */
+           var ch=sg.channelOptions||[];
+           $('#iAtChannel').innerHTML='<option value="">— any channel —</option>'+ch.map(function(o){return '<option value="'+esc(o)+'">'+esc(o)+'</option>';}).join('');
+           $('#iAtHasEmail').disabled=!sg.hasEmail;});}
 
        /* lead table with draggable columns */
        var COLS=[{k:'status',l:'Status'},{k:'instagram_handle',l:'Instagram handle'},{k:'category',l:'Category'},{k:'account',l:'WA account (sending from)'},{k:'event_link',l:'Event (Instagram link)'}];
