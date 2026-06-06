@@ -309,7 +309,7 @@ export function onboardingView(_email: string): string {
 
          <label class="tpl-lbl">Subject <span class="req">*</span></label>
          <div class="tpl-field">
-           <div class="tpl-tags">Personalization Tags: <button class="tpl-tag" data-tag="{First Name}" data-target="tplSubject">{First Name}</button><button class="tpl-tag" data-tag="{Brand Name}" data-target="tplSubject">{Brand Name}</button></div>
+           <div class="tpl-tags">Personalization Tags: <button class="tpl-tag" data-tag="{{first_name}}" data-target="tplSubject">{{first_name}}</button><button class="tpl-tag" data-tag="{{last_name}}" data-target="tplSubject">{{last_name}}</button><button class="tpl-tag" data-tag="{{brand_name}}" data-target="tplSubject">{{brand_name}}</button></div>
            <input class="tpl-subj" id="tplSubject" placeholder="Email Subject">
          </div>
 
@@ -318,7 +318,7 @@ export function onboardingView(_email: string): string {
              <button type="button" class="tpl-tb" title="Text"><b>T</b></button>
              <button type="button" class="tpl-tb" title="Link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
            </div>
-           <div class="tpl-tags">Personalization Tags: <button class="tpl-tag" data-tag="{First Name}" data-target="tplBody">{First Name}</button><button class="tpl-tag" data-tag="{Brand Name}" data-target="tplBody">{Brand Name}</button></div>
+           <div class="tpl-tags">Personalization Tags: <button class="tpl-tag" data-tag="{{first_name}}" data-target="tplBody">{{first_name}}</button><button class="tpl-tag" data-tag="{{last_name}}" data-target="tplBody">{{last_name}}</button><button class="tpl-tag" data-tag="{{brand_name}}" data-target="tplBody">{{brand_name}}</button></div>
            <textarea class="tpl-area" id="tplBody" placeholder="Email Body"></textarea>
          </div>
 
@@ -522,17 +522,35 @@ export function onboardingView(_email: string): string {
          document.getElementById('pchClose').addEventListener('click',close);
          document.getElementById('pchBack').addEventListener('click',close);
          bd.addEventListener('click',function(e){if(e.target===bd)close();});
-         document.getElementById('pchGen').addEventListener('click',function(){
+         var genBtn=document.getElementById('pchGen');
+         genBtn.addEventListener('click',function(){
            var data={mode:chosenMode(),about:document.querySelector('#ddAbout .pf-dd-val').textContent,aboutUrl:(document.getElementById('aboutUrl')||{}).value,aboutText:(document.getElementById('aboutText')||{}).value,work:document.querySelector('#ddWork .pf-dd-val').textContent,workUrl:(document.getElementById('workUrl')||{}).value};
-           localStorage.setItem('lepton_pitch_setup',JSON.stringify(data));close();
-           if(window.__openTemplate)window.__openTemplate();
+           localStorage.setItem('lepton_pitch_setup',JSON.stringify(data));
+           if(data.mode!=='ai'){close();if(window.__openTemplate)window.__openTemplate();return;}
+           // Bento writes it: ask the server (GPT-5.4-mini + pitch guide) for a draft, then open the editor prefilled.
+           genBtn.disabled=true;var label=genBtn.textContent;genBtn.textContent='GENERATING…';
+           fetch('/api/onboarding/generate-pitch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)})
+             .then(function(r){return r.json();})
+             .then(function(j){
+               genBtn.disabled=false;genBtn.textContent=label;
+               close();
+               if(window.__openTemplate)window.__openTemplate(j&&j.ok?{subject:j.subject,body:j.body}:null);
+               if(!(j&&j.ok))alert((j&&j.error)||'Could not generate a pitch. You can write your own.');
+             })
+             .catch(function(){genBtn.disabled=false;genBtn.textContent=label;close();if(window.__openTemplate)window.__openTemplate(null);});
          });
        })();
      </script>
      <script>
        (function(){
          var bd=document.getElementById('tplBackdrop');if(!bd)return;
-         window.__openTemplate=function(){bd.style.display='flex';};
+         window.__openTemplate=function(prefill){
+           if(prefill){
+             var s=document.getElementById('tplSubject');if(s&&prefill.subject)s.value=prefill.subject;
+             var b=document.getElementById('tplBody');if(b&&prefill.body)b.value=prefill.body;
+           }
+           bd.style.display='flex';
+         };
          function close(){bd.style.display='none';}
          var pch=function(){return document.getElementById('pchBackdrop');};
          document.getElementById('tplClose').addEventListener('click',function(){close();if(pch())pch().style.display='none';});

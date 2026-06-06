@@ -5,9 +5,9 @@
   "description": "Multi-tenant WhatsApp connector — connect/disconnect your WhatsApp, secure dashboard. Node + Hono + Baileys.",
   "engines": { "node": ">=23.6" },
   "scripts": {
-    "dev": "node --watch src/server.ts",
-    "start": "node src/server.ts",
-    "mcp": "node src/mcp.ts"
+    "dev": "node --env-file-if-exists=.env --watch src/server.ts",
+    "start": "node --env-file-if-exists=.env src/server.ts",
+    "mcp": "node --env-file-if-exists=.env src/mcp.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
