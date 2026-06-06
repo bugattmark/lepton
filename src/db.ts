@@ -190,7 +190,7 @@ export interface LeadListRow {
   id: number
   tenant_id: string
   name: string
-  type: 'csv' | 'attio'
+  type: 'csv' | 'attio' | 'sourced'
   config: string
   created_at: number
 }

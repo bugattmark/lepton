@@ -2,6 +2,10 @@
 // NOTE: the dashboard's client <script> lives inside this template literal, so it must
 // NOT use backticks or ${...}. Build strings with single quotes + concatenation.
 
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+const LANDING_HTML = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'landing.html'), 'utf8')
 const CSS = `
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--fg:#000;--bg:#fff;--muted:#666;--line:#e5e5e5}
@@ -11,6 +15,10 @@ a{color:inherit}
 .wrap{max-width:920px;margin:0 auto;padding:24px}
 .nav{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:18px 24px}
 .brand{font-weight:700;letter-spacing:-.02em;font-size:18px}
+.ptabs{display:flex;gap:4px}
+.ptab{padding:8px 16px;border-radius:8px;font-weight:600;font-size:14px;color:var(--muted);text-decoration:none}
+.ptab:hover{background:#f4f4f4;color:#000}
+.ptab.on{background:#000;color:#fff}
 .brand .mark{display:inline-block;width:14px;height:14px;border:2px solid #000;border-radius:50%;background:#fff;vertical-align:-1px;margin-right:6px}
 .btn{display:inline-block;background:#000;color:#fff;border:1px solid #000;border-radius:8px;
   padding:10px 18px;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;text-align:center}
@@ -108,19 +116,7 @@ export function page(title: string, body: string): string {
 }
 
 export function landingView(): string {
-  return page(
-    'Lepton',
-    `<div class="nav"><div class="brand"><span class="mark"></span>Lepton</div>
-       <div class="row"><a class="btn ghost" href="/login">Log in</a><a class="btn" href="/signup">Sign up</a></div>
-     </div>
-     <div class="wrap">
-       <div class="hero">
-         <h1>Connect WhatsApp.<br>Automate your outreach.</h1>
-         <p>Link your personal and business WhatsApp, send and receive messages, all from one secure dashboard.</p>
-         <div class="row"><a class="btn" href="/signup">Sign up</a><a class="btn ghost" href="/login">Log in</a></div>
-       </div>
-     </div>`,
-  )
+  return LANDING_HTML
 }
 
 export function authView(mode: 'login' | 'signup', error?: string): string {
@@ -145,14 +141,193 @@ export function authView(mode: 'login' | 'signup', error?: string): string {
   )
 }
 
+// Shared top bar with the three product tabs (Source / Qualifying / Outbound).
+function shellNav(email: string, active: 'source' | 'qualifying' | 'outbound'): string {
+  const tab = (href: string, label: string, key: string) =>
+    `<a href="${href}" class="ptab${active === key ? ' on' : ''}">${label}</a>`
+  return `<div class="nav"><a class="brand" href="/outbound" style="text-decoration:none"><span class="mark"></span>Lepton</a>
+     <div class="ptabs">${tab('/source', 'Source', 'source')}${tab('/qualifying', 'Qualifying', 'qualifying')}${tab('/outbound', 'Outbound', 'outbound')}</div>
+     <div class="row"><span class="muted" style="align-self:center">${email}</span>
+       <form method="post" action="/logout"><button class="btn ghost" type="submit">Log out</button></form>
+     </div>
+   </div>`
+}
+
+export function sourceView(email: string): string {
+  return page(
+    'Source — Lepton',
+    shellNav(email, 'source') +
+      `<div class="wrap" style="max-width:1040px">
+       <div class="flex"><h3>Source leads</h3>
+         <select id="listSel" style="width:300px"></select>
+       </div>
+       <p class="hint">Discover the Instagram handles of people running events, then auto-find their WhatsApp number with gpt-5.4. Or import rows from Attio.</p>
+
+       <!-- create / import row -->
+       <div class="row2 mt" style="align-items:stretch;gap:14px">
+         <!-- NEW SOURCED LIST -->
+         <div class="card" style="flex:1">
+           <h4 style="margin-top:0">New Instagram source</h4>
+           <label>Niche label</label><input id="nNiche" placeholder="e.g. London supper clubs">
+           <label class="mt">Hashtags to search <span class="hint">(comma-separated, no #)</span></label>
+           <input id="nTags" placeholder="supperclublondon, londonsupperclub">
+           <button class="btn sm mt" id="nCreate">Create source</button>
+           <p class="mono mt" id="nMsg"></p>
+         </div>
+         <!-- IMPORT FROM ATTIO -->
+         <div class="card" style="flex:1">
+           <h4 style="margin-top:0">Import from Attio</h4>
+           <div id="atNote" class="hint">Connect Attio in Outbound → connections first.</div>
+           <div id="atBox" style="display:none">
+             <label>Object type</label><select id="atObj"></select>
+             <div class="hint mt">Map Attio attributes → our columns:</div>
+             <div class="cfg3 mt">
+               <div><label>Phone</label><select id="mapPhone"></select></div>
+               <div><label>Name</label><select id="mapName"></select></div>
+               <div><label>IG handle</label><select id="mapIg"></select></div>
+             </div>
+             <div class="cfg3 mt"><div><label>Link</label><select id="mapLink"></select></div><div><label>Category</label><select id="mapCat"></select></div><div></div></div>
+             <label class="mt">List name</label><input id="atName" placeholder="e.g. Attio – Prospects">
+             <button class="btn sm mt" id="atImport">Import all rows</button>
+             <p class="mono mt" id="atMsg"></p>
+           </div>
+         </div>
+       </div>
+
+       <!-- SELECTED SOURCE: config + status -->
+       <div id="cfgCard" class="card mt" style="display:none">
+         <div class="flex"><h4 style="margin:0" id="cfgTitle">Source</h4>
+           <div class="row2"><span class="mono" id="srcStatus"></span>
+             <button class="btn ghost sm" id="srcSave">Save</button>
+             <button class="btn sm" id="srcStart">Turn on</button>
+             <button class="x" id="srcDel">delete</button>
+           </div>
+         </div>
+         <div class="cfg3 mt">
+           <div><label>Phone numbers wanted</label><input type="number" id="cTarget" value="10"><div class="hint">stop once this many have a number</div></div>
+           <div><label>Refresh every (days)</label><input type="number" id="cRefresh" value="2"><div class="hint">re-run cadence</div></div>
+           <div><label>Followers</label><div class="row2"><input type="number" id="cMin" value="500" style="width:70px"><span class="hint">to</span><input type="number" id="cMax" value="100000" style="width:80px"></div></div>
+         </div>
+         <label class="mt">Hashtags <span class="hint">(comma-separated)</span></label><input id="cTags">
+         <label class="mt">Phone-finder instruction <span class="hint">(gpt-5.4 prompt — editable)</span></label>
+         <textarea id="cInstr" rows="3"></textarea>
+       </div>
+
+       <!-- LIVE TABLE -->
+       <div id="tblWrap" class="mt" style="display:none">
+         <div class="muted" style="font-size:12px" id="tblMeta"></div>
+         <table class="tbl" id="srcTbl"></table>
+       </div>
+     </div>
+
+     <script>
+       var $=function(s){return document.querySelector(s);};
+       var J=function(u,o){return fetch(u,o).then(function(r){return r.json();}).catch(function(){return {ok:false,error:'bad response'};});};
+       var POST=function(u,b){return J(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})});};
+       var PUT=function(u,b){return J(u,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})});};
+       var DEL=function(u){return J(u,{method:'DELETE'});};
+       var esc=function(s){return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+       var LISTS=[],CUR=null,POLL=null,ATTRS=[];
+
+       /* ---- sourced lists ---- */
+       function loadLists(){return J('/api/source/lists').then(function(j){if(!j.ok)return;LISTS=j.lists;
+         if(!j.hiker)$('#nMsg').textContent='note: HIKER_API_KEY not set on server — discovery will fail.';
+         var sel=$('#listSel');sel.innerHTML='<option value="">— select a source —</option>'+LISTS.map(function(l){return '<option value="'+l.id+'"'+(CUR==l.id?' selected':'')+'>'+esc(l.name)+' ('+(l.size||0)+')</option>';}).join('');});}
+       $('#listSel').onchange=function(){var id=$('#listSel').value;openList(id?Number(id):null);};
+
+       $('#nCreate').onclick=function(){var niche=$('#nNiche').value.trim();var tags=$('#nTags').value.split(',').map(function(t){return t.trim();}).filter(Boolean);
+         if(!niche){$('#nMsg').textContent='enter a niche label';return;}if(!tags.length){$('#nMsg').textContent='enter at least one hashtag';return;}
+         $('#nMsg').textContent='creating…';
+         POST('/api/source/lists',{name:niche,niche:niche,hashtags:tags}).then(function(j){
+           if(!j.ok){$('#nMsg').textContent='error: '+(j.error||'failed');return;}
+           $('#nMsg').textContent='created ✓';$('#nNiche').value='';$('#nTags').value='';
+           CUR=j.id;loadLists().then(function(){openList(j.id);});});};
+
+       function openList(id){CUR=id;if(POLL){clearInterval(POLL);POLL=null;}
+         if(!id){$('#cfgCard').style.display='none';$('#tblWrap').style.display='none';return;}
+         $('#listSel').value=id;$('#cfgCard').style.display='';$('#tblWrap').style.display='';
+         fetchStatus(true);POLL=setInterval(fetchStatus,3000);}
+
+       function fetchStatus(loadCfg){if(CUR==null)return;
+         J('/api/source/lists/'+CUR+'/status').then(function(j){if(!j.ok)return;
+           var running=(j.status==='running');
+           $('#srcStatus').textContent=(running?'● sourcing… ':'')+ (j.found||0)+'/'+(j.target||0)+' phones · '+(j.scanned||0)+' scanned'+(j.status==='error'?' · error':'');
+           $('#srcStart').textContent=running?'Sourcing…':'Turn on';$('#srcStart').disabled=running;
+           renderTbl(j.rows||[]);
+           if(loadCfg){ /* hydrate config inputs once on open */
+             var l=LISTS.filter(function(x){return x.id==CUR;})[0];$('#cfgTitle').textContent=l?l.name:'Source';
+             hydrateCfg(j.config);}});}
+
+       $('#srcStart').onclick=function(){if(CUR==null)return;saveCfg(true).then(function(){
+         $('#srcStatus').textContent='starting…';POST('/api/source/lists/'+CUR+'/start').then(function(j){
+           if(!j.ok){$('#srcStatus').textContent='error: '+(j.error||'failed');return;}
+           if(POLL)clearInterval(POLL);fetchStatus();POLL=setInterval(fetchStatus,3000);});});};
+       $('#srcSave').onclick=function(){saveCfg(false);};
+       $('#srcDel').onclick=function(){if(CUR==null)return;if(!confirm('Delete this source?'))return;
+         DEL('/api/source/lists/'+CUR).then(function(){CUR=null;openList(null);loadLists();});};
+       function saveCfg(quiet){if(CUR==null)return Promise.resolve();
+         var body={targetPhones:Number($('#cTarget').value)||10,refreshDays:Number($('#cRefresh').value)||2,
+           minFollowers:Number($('#cMin').value)||0,maxFollowers:Number($('#cMax').value)||100000,
+           hashtags:$('#cTags').value.split(',').map(function(t){return t.trim();}).filter(Boolean),
+           instruction:$('#cInstr').value};
+         return PUT('/api/source/lists/'+CUR,body).then(function(j){if(!quiet)$('#srcSave').textContent=j.ok?'Saved ✓':'Error';setTimeout(function(){$('#srcSave').textContent='Save';},1200);return j;});}
+
+       /* hydrate the config inputs the first time a list opens (status doesn't return cfg, so pull defaults from server on create) */
+       function hydrateCfg(s){if(!s)return;$('#cTarget').value=s.targetPhones;$('#cRefresh').value=s.refreshDays;$('#cMin').value=s.minFollowers;$('#cMax').value=s.maxFollowers;$('#cTags').value=(s.hashtags||[]).join(', ');$('#cInstr').value=s.instruction||'';}
+
+       /* ---- live table (current columns) ---- */
+       function renderTbl(rows){
+         $('#tblMeta').textContent=rows.length+' candidates · '+rows.filter(function(r){return r.phone;}).length+' with a phone';
+         var head='<thead><tr><th>Instagram</th><th>Name</th><th>Phone</th><th>Link</th><th>Category</th></tr></thead>';
+         var dash='<span class="hint">—</span>';
+         var body=rows.map(function(r){
+           return '<tr><td>'+(r.instagram_handle?'@'+esc(r.instagram_handle):dash)+'</td>'
+             +'<td>'+(r.name?esc(r.name):dash)+'</td>'
+             +'<td>'+(r.phone?'<span class="mono">'+esc(r.phone)+'</span>':dash)+'</td>'
+             +'<td>'+(r.event_link?('<a href="'+esc(r.event_link)+'" target="_blank" rel="noopener">link ↗</a>'):dash)+'</td>'
+             +'<td>'+(r.category?esc(r.category):dash)+'</td></tr>';}).join('');
+         $('#srcTbl').innerHTML=head+'<tbody>'+(body||'<tr><td colspan="5" class="muted">No candidates yet — Turn on to start sourcing.</td></tr>')+'</tbody>';}
+
+       /* ---- Attio import (ported here, with attribute→column mapping) ---- */
+       function loadAttio(){J('/api/settings').then(function(j){if(j&&j.attioConnected){$('#atNote').style.display='none';$('#atBox').style.display='';loadObjects();}});}
+       function loadObjects(){J('/api/attio/objects').then(function(j){if(!j.ok){$('#atMsg').textContent=j.error||'connect Attio first';return;}
+         $('#atObj').innerHTML=j.objects.map(function(o){return '<option value="'+o.api_slug+'">'+esc(o.plural||o.api_slug)+'</option>';}).join('');$('#atObj').onchange=objChange;objChange();});}
+       function objChange(){var obj=$('#atObj').value;if(!obj)return;
+         J('/api/attio/objects/'+obj+'/attributes').then(function(r){ATTRS=r.ok?r.attributes:[];
+           var opts=ATTRS.map(function(a){return '<option value="'+a.api_slug+'">'+esc(a.title)+' ('+a.type+')</option>';}).join('');
+           var none='<option value="">— none —</option>';
+           $('#mapPhone').innerHTML=opts;$('#mapName').innerHTML=none+opts;$('#mapIg').innerHTML=none+opts;$('#mapLink').innerHTML=none+opts;$('#mapCat').innerHTML=none+opts;
+           var ph=(ATTRS.filter(function(a){return a.type==='phone-number';})[0]||{}).api_slug;if(ph)$('#mapPhone').value=ph;
+           var nm=(ATTRS.filter(function(a){return a.type==='personal-name';})[0]||{}).api_slug;if(nm)$('#mapName').value=nm;});}
+       $('#atImport').onclick=function(){var phone=$('#mapPhone').value;if(!phone){$('#atMsg').textContent='pick a phone attribute';return;}
+         var mapping={phone:phone,name:$('#mapName').value||undefined,vars:[]};
+         [['#mapIg','instagram_handle'],['#mapLink','instagram_link'],['#mapCat','category']].forEach(function(p){if($(p[0]).value)mapping.vars.push($(p[0]).value);});
+         $('#atMsg').textContent='importing…';
+         POST('/api/lists/attio',{name:$('#atName').value||'Attio list',object:$('#atObj').value,mapping:mapping}).then(function(j){
+           $('#atMsg').textContent=j.ok?'imported ✓ — available in Outbound':('error: '+(j.error||'failed'));if(j.ok)loadLists();});};
+
+       loadLists();loadAttio();
+     </script>`,
+  )
+}
+
+export function qualifyingView(email: string): string {
+  return page(
+    'Qualifying — Lepton',
+    shellNav(email, 'qualifying') +
+      `<div class="wrap" style="max-width:680px">
+         <div class="card center" style="margin-top:40px;padding:48px">
+           <h3>Qualifying</h3>
+           <p class="muted mt">Coming soon. This is where sourced leads get scored and filtered before they enter an outbound sequence.</p>
+         </div>
+       </div>`,
+  )
+}
+
 export function dashboardView(email: string): string {
   return page(
     'Lepton',
-    `<div class="nav"><a class="brand" href="/" style="text-decoration:none"><span class="mark"></span>Lepton</a>
-       <div class="row"><span class="muted" style="align-self:center">${email}</span>
-         <form method="post" action="/logout"><button class="btn ghost" type="submit">Log out</button></form>
-       </div>
-     </div>
+    shellNav(email, 'outbound') + `
 
      <!-- ============ MAIN SCREEN ============ -->
      <div id="screenMain" class="wrap dashwrap">
@@ -540,19 +715,11 @@ export function dashboardView(email: string): string {
            var opts='<option value="">— no list —</option>'+LISTS.map(function(l){return '<option value="'+l.id+'"'+(l.id==cur?' selected':'')+'>'+esc(l.name)+' ('+l.type+(l.size?(' · '+l.size):'')+')</option>';}).join('');
            box.innerHTML=
              '<h5>Lead list</h5>'
-             +'<p class="hint">Leads are pulled from this source. Loop a Wait back to this block to keep pulling fresh leads on that cadence.</p>'
+             +'<p class="hint">Leads are pulled from this source. Build lists in the <a href="/source">Source</a> tab. Loop a Wait back to this block to keep pulling fresh leads on that cadence.</p>'
              +'<label>Choose a list</label><select id="iList">'+opts+'</select>'
-             +'<div id="iListTbl" class="mt"></div>'
-             +'<div class="row2 mt"><button class="btn ghost sm" id="iAddCsv">Import from CSV</button><button class="btn ghost sm" id="iAddAttio">Import from Attio</button><button class="x" id="iDelList">delete list</button></div>'
-             +'<div id="iCsvBox" class="tbox" style="display:none"><label>List name</label><input id="iCsvName" placeholder="e.g. June IG leads"><label class="mt">Upload CSV <span class="hint">(needs a phone column; instagram / link auto-detected)</span></label><input type="file" id="iCsvFile" accept=".csv,text/csv"><button class="btn sm mt" id="iCsvSave">Save list</button><p class="mono mt" id="iCsvResult"></p></div>'
-             +'<div id="iAttioBox" class="tbox" style="display:none"><label>List name</label><input id="iAtName" placeholder="e.g. Attio – Prospects"><div class="cfg3 mt"><div><label>Object</label><select id="iAtObj"></select></div><div><label>List (optional)</label><select id="iAtList"></select></div><div><label>Phone field</label><select id="iAtPhone"></select></div></div><div class="cfg3 mt"><div><label>Name</label><select id="iAtName2"></select></div><div><label>IG handle</label><select id="iAtIg"></select></div><div><label>Link</label><select id="iAtLink"></select></div></div><button class="btn sm mt" id="iAtSave">Save list</button><p class="mono mt" id="iAtResult"></p></div>';
+             +'<div id="iListTbl" class="mt"></div>';
            loadListTable();
            $('#iList').onchange=function(){n.data=n.data||{};n.data.listId=$('#iList').value?Number($('#iList').value):null;renderCanvas();saveCampaign(true);loadListTable();};
-           $('#iDelList').onclick=function(){var id=$('#iList').value;if(!id)return;if(!confirm('Delete this list?'))return;DEL('/api/lists/'+id).then(function(){if(n.data)n.data.listId=null;renderLists();});};
-           $('#iAddCsv').onclick=function(){var b=$('#iCsvBox');b.style.display=b.style.display==='none'?'':'none';$('#iAttioBox').style.display='none';};
-           $('#iAddAttio').onclick=function(){var b=$('#iAttioBox');b.style.display=b.style.display==='none'?'':'none';$('#iCsvBox').style.display='none';if(b.style.display==='')loadAttioObjectsInto();};
-           $('#iCsvSave').onclick=function(){var f=$('#iCsvFile').files[0];if(!f){$('#iCsvResult').textContent='choose a file';return;}var rd=new FileReader();rd.onload=function(){$('#iCsvResult').textContent='uploading…';POST('/api/lists/csv',{name:$('#iCsvName').value||f.name,csv:rd.result}).then(function(j){$('#iCsvResult').textContent=j.ok?('saved ✓ '+j.size+' leads ('+j.noPhone+' had no phone)'):('error: '+(j.error||'failed'));if(j.ok){n.data=n.data||{};n.data.listId=j.id;renderLists().then(function(){saveCampaign(true);renderInspector();});}});};rd.readAsText(f);};
-           $('#iAtSave').onclick=function(){var phone=$('#iAtPhone').value;if(!phone){$('#iAtResult').textContent='pick a phone field';return;}var mapping={phone:phone,name:$('#iAtName2').value||undefined,vars:[]};if($('#iAtIg').value)mapping.vars.push($('#iAtIg').value);if($('#iAtLink').value)mapping.vars.push($('#iAtLink').value);$('#iAtResult').textContent='saving…';POST('/api/lists/attio',{name:$('#iAtName').value||'Attio list',object:$('#iAtObj').value,listId:$('#iAtList').value,mapping:mapping}).then(function(j){$('#iAtResult').textContent=j.ok?'saved ✓':('error: '+(j.error||'failed'));if(j.ok){n.data=n.data||{};n.data.listId=j.id;renderLists().then(function(){saveCampaign(true);renderInspector();});}});};
            return;}
          if(n.type==='wait'){box.innerHTML='<h5>Wait</h5><label>Minutes to wait</label><input type="number" id="iWait" value="'+((n.data&&n.data.minutes)||0)+'"><p class="hint">e.g. 1440 = 1 day. Link this block back to Send to create a follow-up loop.</p>';
            $('#iWait').onchange=function(){n.data.minutes=Number($('#iWait').value)||0;renderCanvas();};return;}

@@ -1,0 +1,772 @@
+[
+  {
+    "name": "Suppers by Rosie & Virgi",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 484320, Requested 18399. Please try again in 326m"
+  },
+  {
+    "name": "SKC Supper Clubs",
+    "phone": "+447512486014",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://skcsupperclubs.co.uk/?utm_source=openai",
+    "email": "",
+    "notes": "+447512486014 ([skcsupperclubs.co.uk](https://skcsupperclubs.co.uk/?utm_source=openai))",
+    "in_tok": 8701,
+    "out_tok": 407
+  },
+  {
+    "name": "The Table by Tania",
+    "phone": "+447767302081",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://thetablebytania.uk/",
+    "email": "",
+    "notes": "+44 7767 302081 ([thetablebytania.uk](https://thetablebytania.uk/))",
+    "in_tok": 12844,
+    "out_tok": 791
+  },
+  {
+    "name": "SHOKUDO",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 483859, Requested 18155. Please try again in 241m"
+  },
+  {
+    "name": "Khao Suppers",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 490792, Requested 22305. Please try again in 1.57"
+  },
+  {
+    "name": "Secret Passage Supper Club",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 487263, Requested 20273. Please try again in 904m"
+  },
+  {
+    "name": "Earlsdon Supper Club",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 489959, Requested 12495. Please try again in 294m"
+  },
+  {
+    "name": "Seeds of Wild",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 490046, Requested 14594. Please try again in 556m"
+  },
+  {
+    "name": "Camel & Jeans",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 495223, Requested 9304. Please try again in 543ms"
+  },
+  {
+    "name": "Alissa's Supper Clubs",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 491839, Requested 9124. Please try again in 115ms"
+  },
+  {
+    "name": "Through The Looking Glass Supper Club",
+    "phone": "+447970422194",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://alicessupperclub.co.uk/",
+    "email": "",
+    "notes": "+447970422194. ([alicessupperclub.co.uk](https://alicessupperclub.co.uk/))",
+    "in_tok": 12615,
+    "out_tok": 457
+  },
+  {
+    "name": "Alexander Does Supper",
+    "phone": "+447540240908",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://www.alexanderdoessupper.com/contact",
+    "email": "",
+    "notes": "+447540240908 ([alexanderdoessupper.com](https://www.alexanderdoessupper.com/contact))",
+    "in_tok": 11256,
+    "out_tok": 564
+  },
+  {
+    "name": "Jaiye",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 493184, Requested 13200. Please try again in 766m"
+  },
+  {
+    "name": "Moregeous Supper Clubs",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 479234, Requested 22061. Please try again in 155m"
+  },
+  {
+    "name": "Liz O'Keefe Seasonal Dinner Parties",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 493643, Requested 8977. Please try again in 314ms"
+  },
+  {
+    "name": "The Supper Spot",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 495927, Requested 9273. Please try again in 624ms"
+  },
+  {
+    "name": "Cabi's Supper Club",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 493385, Requested 7077. Please try again in 55ms."
+  },
+  {
+    "name": "Smart Supper Club",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 486544, Requested 14023. Please try again in 68ms"
+  },
+  {
+    "name": "Curly Magpie",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "https://www.curlymagpie.co.uk/contact/",
+    "email": "",
+    "notes": "none ([curlymagpie.co.uk](https://www.curlymagpie.co.uk/contact/))",
+    "in_tok": 19415,
+    "out_tok": 1486
+  },
+  {
+    "name": "So Last Century",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 486950, Requested 14419. Please try again in 164m"
+  },
+  {
+    "name": "Judy's Vintage Fair",
+    "phone": "+447398380487",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://judysvintagefair.com/trader-bookings/?utm_source=openai",
+    "email": "",
+    "notes": "+44 7398 380487 ([judysvintagefair.com](https://judysvintagefair.com/trader-bookings/?utm_source=openai))",
+    "in_tok": 22008,
+    "out_tok": 692
+  },
+  {
+    "name": "Artisan Uprising",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 483572, Requested 22683. Please try again in 750m"
+  },
+  {
+    "name": "Go East Vintage",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 500000, Requested 11864. Please try again in 1.42"
+  },
+  {
+    "name": "The HandCrafted Market",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 483731, Requested 22031. Please try again in 691m"
+  },
+  {
+    "name": "Independent Street",
+    "phone": "+447872179233",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://independentstreet.co.uk/contact-us/",
+    "email": "",
+    "notes": "+447872179233 ([independentstreet.co.uk](https://independentstreet.co.uk/contact-us/))",
+    "in_tok": 13464,
+    "out_tok": 591
+  },
+  {
+    "name": "Ark Heritage",
+    "phone": "+447709429519",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://www.arkheritage.co.uk/",
+    "email": "",
+    "notes": "+447709429519 ([arkheritage.co.uk](https://www.arkheritage.co.uk/))",
+    "in_tok": 12465,
+    "out_tok": 513
+  },
+  {
+    "name": "The Country Brocante",
+    "phone": "+441730810973",
+    "phone_type": "landline",
+    "confidence": "likely",
+    "source_url": "https://thecountrybrocante.co.uk/privacypolicy2",
+    "email": "",
+    "notes": "+44 1730 810973 ([thecountrybrocante.co.uk](https://thecountrybrocante.co.uk/privacypolicy2))",
+    "in_tok": 17595,
+    "out_tok": 701
+  },
+  {
+    "name": "Curated Makers",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 494131, Requested 21346. Please try again in 1.85"
+  },
+  {
+    "name": "Folk & Bespoke",
+    "phone": "+447702220683",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://www.folkandbespoke.com/contact-us/?utm_source=openai",
+    "email": "",
+    "notes": "+447702220683 ([folkandbespoke.com](https://www.folkandbespoke.com/contact-us/?utm_source=openai))",
+    "in_tok": 12519,
+    "out_tok": 477
+  },
+  {
+    "name": "Artisan Made UK",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 488106, Requested 13161. Please try again in 152m"
+  },
+  {
+    "name": "Craft & Flea",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 490970, Requested 9156. Please try again in 15ms."
+  },
+  {
+    "name": "Haworth & Yorkshire Creatives Makers Market",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 487048, Requested 17972. Please try again in 602m"
+  },
+  {
+    "name": "Curated by Dapper & Suave",
+    "phone": "+447757760042",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://vantagepointmag.co.uk/organizer/curated-by-dapper-suave/",
+    "email": "",
+    "notes": "+447757760042 ([vantagepointmag.co.uk](https://vantagepointmag.co.uk/organizer/curated-by-dapper-suave/))",
+    "in_tok": 26076,
+    "out_tok": 999
+  },
+  {
+    "name": "The Makers Market",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 495359, Requested 9171. Please try again in 543ms"
+  },
+  {
+    "name": "Crafty Fox Market",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 485681, Requested 15743. Please try again in 170m"
+  },
+  {
+    "name": "MP4 Presents",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 486425, Requested 15091. Please try again in 181m"
+  },
+  {
+    "name": "Errant Minds",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 491925, Requested 20925. Please try again in 1.54"
+  },
+  {
+    "name": "Freaky Social",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 490254, Requested 10433. Please try again in 82ms"
+  },
+  {
+    "name": "Insomniacz",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 453900, Requested 46491. Please try again in 46ms"
+  },
+  {
+    "name": "Cool For Cats Live",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 490651, Requested 13268. Please try again in 470m"
+  },
+  {
+    "name": "Bad Vibrations",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 473490, Requested 30055. Please try again in 425m"
+  },
+  {
+    "name": "nos productions",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 491525, Requested 10092. Please try again in 194m"
+  },
+  {
+    "name": "REAL Real Sounds",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 486512, Requested 23274. Please try again in 1.17"
+  },
+  {
+    "name": "ZENG",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 486467, Requested 21340. Please try again in 936m"
+  },
+  {
+    "name": "Pinata",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 493834, Requested 9985. Please try again in 458ms"
+  },
+  {
+    "name": "Belle Street Productions",
+    "phone": "+447446162849",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://belle-street.com/contact",
+    "email": "",
+    "notes": "+447446162849 ([belle-street.com](https://belle-street.com/contact))",
+    "in_tok": 12449,
+    "out_tok": 428
+  },
+  {
+    "name": "UK Stand-up Club",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 481864, Requested 26878. Please try again in 1.04"
+  },
+  {
+    "name": "Clandestina",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "https://clandestina.co.uk/",
+    "email": "",
+    "notes": "none. ([clandestina.co.uk](https://clandestina.co.uk/))",
+    "in_tok": 19075,
+    "out_tok": 1143
+  },
+  {
+    "name": "The Bitten Peach",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 490530, Requested 28766. Please try again in 2.31"
+  },
+  {
+    "name": "Cabaret Provocateur",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 486387, Requested 19059. Please try again in 653m"
+  },
+  {
+    "name": "Comedy Cabin",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 483553, Requested 21493. Please try again in 605m"
+  },
+  {
+    "name": "Shenanigans Cabaret",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 496297, Requested 26869. Please try again in 2.77"
+  },
+  {
+    "name": "The Hideaway Cabaret",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 488268, Requested 13226. Please try again in 179m"
+  },
+  {
+    "name": "Knickers Cabaret",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 489477, Requested 23292. Please try again in 1.53"
+  },
+  {
+    "name": "Queerdos Cabaret",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "https://www.rhyshollis.com/enquiries",
+    "email": "",
+    "notes": "none ([rhyshollis.com](https://www.rhyshollis.com/enquiries))",
+    "in_tok": 20386,
+    "out_tok": 1499
+  },
+  {
+    "name": "7PM Comedy",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "https://7pmcomedy.co.uk/",
+    "email": "",
+    "notes": "none. ([7pmcomedy.co.uk](https://7pmcomedy.co.uk/))",
+    "in_tok": 43153,
+    "out_tok": 2283
+  },
+  {
+    "name": "Slap And Giggle Comedy",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 472000, Requested 31604. Please try again in 432m"
+  },
+  {
+    "name": "The Comedy Cabaret",
+    "phone": "+447477931399",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://www.bizseek.co.uk/leeds-comedy-club-07477-931399?utm_source=openai",
+    "email": "",
+    "notes": "+44 7477 931399 ([bizseek.co.uk](https://www.bizseek.co.uk/leeds-comedy-club-07477-931399?utm_source=openai))",
+    "in_tok": 31579,
+    "out_tok": 2433
+  },
+  {
+    "name": "London Cabaret Collective",
+    "phone": "+442081676431",
+    "phone_type": "landline",
+    "confidence": "likely",
+    "source_url": "https://londoncabaretcollective.co.uk/policies/contact-information",
+    "email": "",
+    "notes": "+44 20 8167 6431 ([londoncabaretcollective.co.uk](https://londoncabaretcollective.co.uk/policies/contact-information))",
+    "in_tok": 14806,
+    "out_tok": 781
+  },
+  {
+    "name": "Big Fish Little Fish",
+    "phone": "+447956884530",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://bigfishlittlefishevents.com/contact/",
+    "email": "",
+    "notes": "+447956884530 ([bigfishlittlefishevents.com](https://bigfishlittlefishevents.com/contact/))",
+    "in_tok": 11807,
+    "out_tok": 420
+  },
+  {
+    "name": "Starry Skies / Kambe Events",
+    "phone": "+441174031428",
+    "phone_type": "landline",
+    "confidence": "likely",
+    "source_url": "https://www.kambe-events.co.uk/contact-us/",
+    "email": "",
+    "notes": "+441174031428 ([kambe-events.co.uk](https://www.kambe-events.co.uk/contact-us/))",
+    "in_tok": 20439,
+    "out_tok": 1642
+  },
+  {
+    "name": "Wild Fest",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "https://wildfestivals.co.uk/information.html?utm_source=openai",
+    "email": "",
+    "notes": "none ([wildfestivals.co.uk](https://wildfestivals.co.uk/information.html?utm_source=openai))",
+    "in_tok": 57701,
+    "out_tok": 2230
+  },
+  {
+    "name": "Folk in a Field",
+    "phone": "+447880586569",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://open.endole.co.uk/insight/company/13537439-folk-in-a-field-festival-limited?utm_source=openai",
+    "email": "",
+    "notes": "+447880586569 ([open.endole.co.uk](https://open.endole.co.uk/insight/company/13537439-folk-in-a-field-festival-limited?utm_source=openai))",
+    "in_tok": 31935,
+    "out_tok": 1661
+  },
+  {
+    "name": "Hagg Hill Weekender",
+    "phone": "+447467532548",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://hagghillweekender.co.uk/contact/",
+    "email": "",
+    "notes": "+447467532548 ([hagghillweekender.co.uk](https://hagghillweekender.co.uk/contact/))",
+    "in_tok": 13755,
+    "out_tok": 592
+  },
+  {
+    "name": "Wildlings Festival",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 475828, Requested 13787. Please try again in -1.2"
+  },
+  {
+    "name": "Camp Kindling",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "https://campkindling.co.uk/help/en/articles/9665949-contact-details",
+    "email": "",
+    "notes": "none ([campkindling.co.uk](https://campkindling.co.uk/help/en/articles/9665949-contact-details))",
+    "in_tok": 16048,
+    "out_tok": 555
+  },
+  {
+    "name": "HoneyWoods",
+    "phone": "+447717201329",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://www.somersetwildlife.org/honeywoods-wellbeing-nature",
+    "email": "",
+    "notes": "+447717201329 ([somersetwildlife.org](https://www.somersetwildlife.org/honeywoods-wellbeing-nature))",
+    "in_tok": 22290,
+    "out_tok": 1207
+  },
+  {
+    "name": "Dellfest",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "",
+    "email": "",
+    "notes": "HTTP 429: {\n  \"error\": {\n    \"message\": \"Rate limit reached for gpt-5.4 in organization org-JN0cAHzOYJGqnMEhkqFOMbC4 on tokens per min (TPM): Limit 500000, Used 467005, Requested 45386. Please try again in 1.48"
+  },
+  {
+    "name": "Dorsetfest",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "https://www.dorsetfest.org/keepintouch",
+    "email": "",
+    "notes": "none. ([dorsetfest.org](https://www.dorsetfest.org/keepintouch))",
+    "in_tok": 36599,
+    "out_tok": 1905
+  },
+  {
+    "name": "Elderflower Fields",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "https://elderflowerfields.co.uk/contact-us/",
+    "email": "",
+    "notes": "none \u2014 Elderflower Fields\u2019 official contact pages list email/contact form only, and the only phone number I found on their site is Citizen Ticket\u2019s callback lin",
+    "in_tok": 50662,
+    "out_tok": 2346
+  },
+  {
+    "name": "Moreton Camping Festival",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "https://moretonhouse.uk/pages/contact",
+    "email": "",
+    "notes": "none ([moretonhouse.uk](https://moretonhouse.uk/pages/contact))",
+    "in_tok": 39475,
+    "out_tok": 1874
+  },
+  {
+    "name": "Wibbly Woods",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "https://www.wibblywoods.com/contact",
+    "email": "",
+    "notes": "none. ([wibblywoods.com](https://www.wibblywoods.com/contact))",
+    "in_tok": 24075,
+    "out_tok": 1631
+  },
+  {
+    "name": "Catkin & Conker",
+    "phone": "+447717825168",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://www.catkinandconker.co.uk/?utm_source=openai",
+    "email": "",
+    "notes": "+447717825168 ([catkinandconker.co.uk](https://www.catkinandconker.co.uk/?utm_source=openai))",
+    "in_tok": 8641,
+    "out_tok": 359
+  },
+  {
+    "name": "Hopestock",
+    "phone": "+447949088466",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://hopestock.info/useful-info/",
+    "email": "",
+    "notes": "+44 7949 088466 ([hopestock.info](https://hopestock.info/useful-info/))",
+    "in_tok": 59404,
+    "out_tok": 2514
+  },
+  {
+    "name": "Tara Knott",
+    "phone": "",
+    "phone_type": "none",
+    "confidence": "none",
+    "source_url": "https://taraknott.co.uk/get-in-touch",
+    "email": "",
+    "notes": "none. ([taraknott.co.uk](https://taraknott.co.uk/get-in-touch))",
+    "in_tok": 19045,
+    "out_tok": 1187
+  },
+  {
+    "name": "Vivienne May Weddings",
+    "phone": "+447368672346",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://www.viviennemayweddings.com/contact",
+    "email": "",
+    "notes": "+44 7368 672346 ([viviennemayweddings.com](https://www.viviennemayweddings.com/contact))",
+    "in_tok": 13487,
+    "out_tok": 426
+  },
+  {
+    "name": "Stories of Events",
+    "phone": "+447800923117",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://www.storiesofevents.com/contact?utm_source=openai",
+    "email": "",
+    "notes": "+447800923117 ([storiesofevents.com](https://www.storiesofevents.com/contact?utm_source=openai))",
+    "in_tok": 9660,
+    "out_tok": 462
+  },
+  {
+    "name": "Miss Carly's Lea & Co",
+    "phone": "+447789086362",
+    "phone_type": "mobile",
+    "confidence": "likely",
+    "source_url": "https://www.misscarlysleandco.com/contact?utm_source=openai",
+    "email": "",
+    "notes": "+447789086362 ([misscarlysleandco.com](https://www.misscarlysleandco.com/contact?utm_source=openai))",
+    "in_tok": 8739,
+    "out_tok": 304
+  }
+]
