@@ -195,6 +195,11 @@ export function sourceView(email: string): string {
                <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Link</span><select id="mapLink" style="flex:1"></select></div>
                <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Category</span><select id="mapCat" style="flex:1"></select></div>
              </div>
+             <div class="hint mt" id="atFilterLbl" style="display:none">3. Filters <span class="hint">(optional — narrow the pull in Attio)</span></div>
+             <div id="atFilters" class="mt" style="display:none">
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Channel</span><select id="atChannel" style="flex:1"><option value="">— any channel —</option></select></div>
+               <label class="row2 mt" style="margin:8px 0 0;align-items:center"><input type="checkbox" id="atHasEmail" style="width:auto"> <span class="hint">only records with an email</span></label>
+             </div>
              <button class="btn sm mt" id="atImport">Import rows → add to current list</button>
              <p class="hint" style="margin-top:6px">Adds the pulled rows onto the list selected above. If none is selected, a new list is created.</p>
              <p class="mono mt" id="atMsg"></p>
@@ -354,31 +359,44 @@ export function sourceView(email: string): string {
          POST('/api/attio/disconnect').then(function(){$('#atMsg').textContent='';loadAttio();});};
        function loadObjects(){J('/api/attio/objects').then(function(j){if(!j.ok){$('#atMsg').textContent=j.error||'connect Attio first';return;}
          $('#atObj').innerHTML=j.objects.map(function(o){return '<option value="'+o.api_slug+'">'+esc(o.plural||o.singular||o.api_slug)+'</option>';}).join('');$('#atObj').onchange=objChange;objChange();});}
+       var ATEMAIL='';
        function objChange(){var obj=$('#atObj').value;if(!obj)return;
-         /* load this object's attributes (for mapping) + its lists (for optional subset) */
+         /* lists for the optional subset */
          J('/api/attio/objects/'+obj+'/lists').then(function(r){var lists=(r&&r.ok&&r.lists)||[];
            $('#atList').innerHTML='<option value="">— whole object —</option>'+lists.map(function(l){return '<option value="'+l.id+'">'+esc(l.name)+'</option>';}).join('');});
-         J('/api/attio/objects/'+obj+'/attributes').then(function(r){ATTRS=r.ok?r.attributes:[];
+         /* attributes + server-side coverage-aware suggestion (auto-map) + filter options */
+         Promise.all([J('/api/attio/objects/'+obj+'/attributes'),J('/api/attio/objects/'+obj+'/suggest')]).then(function(r){
+           ATTRS=(r[0]&&r[0].ok)?r[0].attributes:[];var sg=(r[1]&&r[1].ok)?r[1]:{};var m=sg.mapping||{};
            var opts=ATTRS.map(function(a){return '<option value="'+a.api_slug+'">'+esc(a.title)+' ('+a.type+')</option>';}).join('');
            var none='<option value="">— none —</option>';
            $('#mapPhone').innerHTML=none+opts;$('#mapName').innerHTML=none+opts;$('#mapIg').innerHTML=none+opts;$('#mapLink').innerHTML=none+opts;$('#mapCat').innerHTML=none+opts;
            var bySlug=function(s){return (ATTRS.filter(function(a){return a.api_slug===s;})[0]||{}).api_slug;};
            var byType=function(t){return (ATTRS.filter(function(a){return a.type===t;})[0]||{}).api_slug;};
-           var ph=byType('phone-number');if(ph)$('#mapPhone').value=ph;
-           var nm=byType('personal-name')||bySlug('name');if(nm)$('#mapName').value=nm;
-           var ig=bySlug('instagram');if(ig)$('#mapIg').value=ig;
-           var lk=bySlug('external_url')||bySlug('bio_links')||bySlug('linkedin');if(lk)$('#mapLink').value=lk;
-           var ct=bySlug('instagram_category')||bySlug('categories')||bySlug('lead_source');if(ct)$('#mapCat').value=ct;});}
+           /* prefer the server's suggestion (skips empty columns); fall back to local heuristics */
+           $('#mapPhone').value=m.phone||byType('phone-number')||'';
+           $('#mapName').value=m.name||byType('personal-name')||bySlug('name')||'';
+           $('#mapIg').value=m.instagram||bySlug('instagram')||'';
+           $('#mapLink').value=m.link||bySlug('external_url')||bySlug('bio_links')||bySlug('linkedin')||'';
+           $('#mapCat').value=bySlug('instagram_category')||bySlug('categories')||bySlug('lead_source')||'';
+           ATEMAIL=m.email||'';
+           /* filters: channel options + has-email availability (hidden if the object offers neither) */
+           var ch=sg.channelOptions||[];
+           $('#atChannel').innerHTML='<option value="">— any channel —</option>'+ch.map(function(o){return '<option value="'+esc(o)+'">'+esc(o)+'</option>';}).join('');
+           $('#atHasEmail').checked=false;$('#atHasEmail').disabled=!sg.hasEmail;
+           var hasFilters=(ch.length||sg.hasEmail);
+           $('#atFilterLbl').style.display=hasFilters?'':'none';$('#atFilters').style.display=hasFilters?'':'none';});}
        $('#atImport').onclick=function(){
+         var vars=[];if(ATEMAIL)vars.push(ATEMAIL);
          var mapping={phone:$('#mapPhone').value||undefined,name:$('#mapName').value||undefined,
-           instagram:$('#mapIg').value||undefined,link:$('#mapLink').value||undefined,category:$('#mapCat').value||undefined};
-         var body={object:$('#atObj').value,listId:$('#atList').value||undefined,mapping:mapping};
+           instagram:$('#mapIg').value||undefined,link:$('#mapLink').value||undefined,category:$('#mapCat').value||undefined,vars:vars};
+         var filter={};if($('#atChannel').value)filter.primaryChannel=$('#atChannel').value;if($('#atHasEmail').checked)filter.hasEmail=true;
+         var body={object:$('#atObj').value,listId:$('#atList').value||undefined,mapping:mapping,filter:Object.keys(filter).length?filter:undefined};
          function doImport(listId){
            $('#atMsg').textContent='importing… (a whole object can take a moment)';$('#atImport').disabled=true;
            POST('/api/source/lists/'+listId+'/import-attio',body).then(function(j){
              $('#atImport').disabled=false;
              if(!j.ok){$('#atMsg').textContent='error: '+(j.error||'failed');return;}
-             $('#atMsg').textContent='added '+j.added+' rows ✓'+(j.skippedNoPhone?(' ('+j.skippedNoPhone+' skipped, no phone)'):'');
+             $('#atMsg').textContent='added '+j.added+' rows ✓'+(j.skippedNoPhone?(' ('+j.skippedNoPhone+' no phone)'):'')+(j.skippedSuppressed?(' ('+j.skippedSuppressed+' recently contacted)'):'');
              CUR=listId;loadLists().then(function(){openList(listId);});
            });
          }

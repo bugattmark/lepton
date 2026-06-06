@@ -130,6 +130,8 @@ function extract(values: any, slug: string, type: string): string {
       return v.value != null ? String(v.value) : ''
     case 'currency':
       return v.currency_value != null ? String(v.currency_value) : ''
+    case 'date':
+      return v.value ?? ''
     case 'text':
     default:
       return typeof v === 'string' ? v : v.value ?? ''
@@ -141,14 +143,20 @@ export interface PulledContact {
   phone: string // normalized digits, no '+'
   attioRecordId: string
   vars: Record<string, string>
+  lastContactAt?: number | null // ms epoch from the last-WhatsApp-contact date attr, if present
   skipReason?: string // set when the record can't be messaged (no phone / opted out)
 }
 
 const digits = (s: string) => s.replace(/[^0-9]/g, '')
 
 // POST /v2/objects/{object}/records/query — page through records (optionally a subset of
-// record IDs when importing from a list).
-async function queryRecords(apiKey: string, object: string, recordIds?: string[]): Promise<any[]> {
+// record IDs when importing from a list, and/or a server-side attribute filter).
+async function queryRecords(
+  apiKey: string,
+  object: string,
+  recordIds?: string[],
+  filter?: Record<string, unknown>,
+): Promise<any[]> {
   const out: any[] = []
   const PAGE = 100
   if (recordIds && recordIds.length === 0) return out
@@ -158,7 +166,7 @@ async function queryRecords(apiKey: string, object: string, recordIds?: string[]
       const chunk = recordIds.slice(i, i + PAGE)
       const j = await attio(apiKey, `/objects/${object}/records/query`, {
         method: 'POST',
-        body: JSON.stringify({ filter: { record_id: { $in: chunk } }, limit: PAGE }),
+        body: JSON.stringify({ filter: { ...(filter ?? {}), record_id: { $in: chunk } }, limit: PAGE }),
       })
       out.push(...(j?.data ?? []))
     }
@@ -168,7 +176,7 @@ async function queryRecords(apiKey: string, object: string, recordIds?: string[]
   for (let offset = 0; ; offset += PAGE) {
     const j = await attio(apiKey, `/objects/${object}/records/query`, {
       method: 'POST',
-      body: JSON.stringify({ limit: PAGE, offset }),
+      body: JSON.stringify({ ...(filter ? { filter } : {}), limit: PAGE, offset }),
     })
     const page = j?.data ?? []
     out.push(...page)
@@ -176,6 +184,28 @@ async function queryRecords(apiKey: string, object: string, recordIds?: string[]
     if (offset > 50_000) break // safety stop
   }
   return out
+}
+
+// Lightweight one-page sample → per-attribute coverage (fraction of records with a value),
+// used to drive auto-mapping suggestions without paging the whole object.
+export async function sampleCoverage(apiKey: string, object: string, sampleSize = 100): Promise<Record<string, number>> {
+  const j = await attio(apiKey, `/objects/${object}/records/query`, {
+    method: 'POST',
+    body: JSON.stringify({ limit: Math.min(sampleSize, 500) }),
+  })
+  const recs = j?.data ?? []
+  const cov: Record<string, number> = {}
+  if (!recs.length) return cov
+  const counts: Record<string, number> = {}
+  for (const r of recs) {
+    const values = r?.values ?? {}
+    for (const slug of Object.keys(values)) {
+      const v = values[slug]
+      if (Array.isArray(v) ? v.length > 0 : v != null) counts[slug] = (counts[slug] ?? 0) + 1
+    }
+  }
+  for (const slug of Object.keys(counts)) cov[slug] = counts[slug] / recs.length
+  return cov
 }
 
 // POST /v2/lists/{list}/entries/query — page through entries, collect parent person IDs.
@@ -199,10 +229,12 @@ async function listEntryRecordIds(apiKey: string, listId: string): Promise<strin
 }
 
 export interface PullResult {
-  contacts: PulledContact[] // messageable (have a phone)
-  skipped: { noPhone: number; optedOut: number }
+  contacts: PulledContact[] // messageable (have a phone, not recently contacted)
+  skipped: { noPhone: number; optedOut: number; suppressed: number }
   total: number
 }
+
+const DAY_MS = 86_400_000
 
 export interface AttioMapping {
   phone?: string // attribute slug holding the phone number (optional — blank when unmapped)
@@ -213,22 +245,111 @@ export interface AttioMapping {
   vars?: string[] // extra attribute slugs to expose as template variables
 }
 
-// Generic pull: any object, any list, with the user's own attribute mapping.
+// --- auto-mapping: guess which attributes are phone/name/ig/link/email from type + slug/title,
+// so the user confirms a filled-in mapping instead of picking every field by hand. ---
+const kw = (a: AttioAttr, ...words: string[]) => {
+  const hay = (a.api_slug + ' ' + a.title).toLowerCase()
+  return words.some((w) => hay.includes(w))
+}
+// Whole-token match (so "linkedin" doesn't match "link", "avatar_url" doesn't count as a link).
+const tok = (a: AttioAttr): string[] => (a.api_slug + ' ' + a.title).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+const tokAny = (a: AttioAttr, ...words: string[]) => {
+  const t = tok(a)
+  return words.some((w) => t.includes(w))
+}
+
+export interface SuggestedMapping extends AttioMapping {
+  email?: string // email attribute slug (exposed as an {{email}} var)
+  instagram?: string // IG-handle attribute slug
+  link?: string // URL/link attribute slug
+}
+
+// Pure heuristic. `coverage` (slug -> fraction with data, 0..1) lets us avoid suggesting
+// fields that are present in the schema but empty in practice (e.g. an unused IG column).
+export function suggestMapping(attrs: AttioAttr[], coverage: Record<string, number> = {}): SuggestedMapping {
+  const has = (slug?: string) => !!slug && (coverage[slug] === undefined || coverage[slug] > 0)
+  const byType = (t: string) => attrs.find((a) => a.type === t)?.api_slug
+  const byKw = (...w: string[]) => attrs.find((a) => kw(a, ...w))?.api_slug
+
+  // phone-number type is authoritative; otherwise a field whose name is literally phone/mobile.
+  // (Deliberately NOT matching "whatsapp" — that hits jid/date columns, not dial-able numbers.)
+  const phone = byType('phone-number') ?? attrs.find((a) => tokAny(a, 'phone', 'mobile'))?.api_slug ?? ''
+  const name = byType('personal-name') ?? byKw('name')
+  const email = byType('email-address')
+  const igRaw = attrs.find((a) => tokAny(a, 'instagram', 'ig', 'handle'))?.api_slug
+  // a real link/url, not the avatar/logo image url and not a named social (linkedin/twitter)
+  const linkRaw = attrs.find(
+    (a) => tokAny(a, 'url', 'urls', 'link', 'links', 'website', 'bio') && !tokAny(a, 'avatar', 'image', 'logo', 'photo'),
+  )?.api_slug
+  const instagram = has(igRaw) ? igRaw : undefined
+  const link = has(linkRaw) ? linkRaw : undefined
+
+  // template vars: email + the IG/link we found, plus any short text field that actually has data
+  const vars: string[] = []
+  for (const slug of [email, instagram, link]) if (slug && !vars.includes(slug)) vars.push(slug)
+
+  return { phone, name, email: has(email) ? email : undefined, instagram, link, vars }
+}
+
+// A date attribute that records the last WhatsApp contact (suppression source + write-back target).
+export function whatsappDateSlug(attrs: AttioAttr[]): string | undefined {
+  return attrs.find((a) => a.type === 'date' && kw(a, 'whatsapp'))?.api_slug
+}
+
+// The select attribute that holds a contact's preferred channel (filter candidate).
+export function channelSelectSlug(attrs: AttioAttr[]): string | undefined {
+  return attrs.find((a) => a.type === 'select' && kw(a, 'channel'))?.api_slug
+}
+
+// GET /v2/objects/{object}/attributes/{slug}/options — active option titles for a select attr.
+export async function listSelectOptions(apiKey: string, object: string, slug: string): Promise<string[]> {
+  const j = await attio(apiKey, `/objects/${object}/attributes/${slug}/options`)
+  return (j?.data ?? []).filter((o: any) => !o?.is_archived).map((o: any) => o?.title).filter(Boolean)
+}
+
+// --- server-side filters (narrow the pull in Attio rather than after) ---
+export interface AttioFilterConfig {
+  primaryChannel?: string // select-attribute equality, e.g. "WhatsApp"
+  hasEmail?: boolean // require a non-empty email address
+}
+
+// Translate our friendly filter config into an Attio query `filter` object using the object's
+// own attributes (slugs/types vary per object). Returns undefined when nothing is set.
+function buildFilter(cfg: AttioFilterConfig | undefined, attrs: AttioAttr[]): Record<string, unknown> | undefined {
+  if (!cfg) return undefined
+  const filter: Record<string, unknown> = {}
+  if (cfg.primaryChannel) {
+    const sel = attrs.find((a) => a.type === 'select' && kw(a, 'channel'))?.api_slug ?? 'primary_channel'
+    filter[sel] = cfg.primaryChannel
+  }
+  if (cfg.hasEmail) {
+    const email = attrs.find((a) => a.type === 'email-address')?.api_slug
+    if (email) filter[email] = { $contains: '@' } // every address contains '@' → "has email"
+  }
+  return Object.keys(filter).length ? filter : undefined
+}
+
+// Generic pull: any object, any list, with the user's own attribute mapping. Optional
+// server-side filter, and 10-day suppression off the workspace's last-WhatsApp-contact date.
 export async function pullContacts(
   apiKey: string,
-  opts: { object: string; listId?: string; mapping: AttioMapping },
+  opts: { object: string; listId?: string; mapping: AttioMapping; filter?: AttioFilterConfig; suppressDays?: number },
 ): Promise<PullResult> {
-  const { object, listId, mapping } = opts
+  const { object, listId, mapping, filter, suppressDays } = opts
   const attrs = await listObjectAttributes(apiKey, object)
   const typeOf: Record<string, string> = {}
   for (const a of attrs) typeOf[a.api_slug] = a.type
 
+  const attioFilter = buildFilter(filter, attrs)
+  const waDateSlug = suppressDays ? whatsappDateSlug(attrs) : undefined
+  const cutoff = suppressDays ? Date.now() - suppressDays * DAY_MS : 0
+
   const records = listId
-    ? await queryRecords(apiKey, object, await listEntryRecordIds(apiKey, listId))
-    : await queryRecords(apiKey, object)
+    ? await queryRecords(apiKey, object, await listEntryRecordIds(apiKey, listId), attioFilter)
+    : await queryRecords(apiKey, object, undefined, attioFilter)
 
   const contacts: PulledContact[] = []
-  const skipped = { noPhone: 0, optedOut: 0 }
+  const skipped = { noPhone: 0, optedOut: 0, suppressed: 0 }
 
   for (const rec of records) {
     const values = rec?.values ?? {}
@@ -239,6 +360,19 @@ export async function pullContacts(
       skipped.noPhone++
       continue
     }
+
+    // 10-day suppression off Attio's own last-WhatsApp-contact date (cross-tool dedup)
+    let lastContactAt: number | null = null
+    if (waDateSlug) {
+      const raw = extract(values, waDateSlug, 'date')
+      const t = raw ? Date.parse(raw) : NaN
+      if (!Number.isNaN(t)) lastContactAt = t
+    }
+    if (waDateSlug && lastContactAt != null && lastContactAt >= cutoff) {
+      skipped.suppressed++
+      continue
+    }
+
     const name = mapping.name ? extract(values, mapping.name, typeOf[mapping.name] ?? 'text') || null : null
 
     const vars: Record<string, string> = {}
@@ -262,7 +396,23 @@ export async function pullContacts(
       if (nv?.full_name) vars.full_name = nv.full_name
     }
 
-    contacts.push({ name, phone, attioRecordId: rec?.id?.record_id ?? '', vars })
+    contacts.push({ name, phone, attioRecordId: rec?.id?.record_id ?? '', vars, lastContactAt })
   }
   return { contacts, skipped, total: records.length }
+}
+
+// Write a date (YYYY-MM-DD) onto a single-value date attribute — the last-WhatsApp-contact
+// stamp used for suppression. Best-effort; callers swallow errors.
+export async function writeDateAttr(
+  apiKey: string,
+  object: string,
+  recordId: string,
+  slug: string,
+  isoDate: string,
+): Promise<void> {
+  if (!recordId || !slug) return
+  await attio(apiKey, `/objects/${object}/records/${recordId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ data: { values: { [slug]: isoDate } } }),
+  })
 }

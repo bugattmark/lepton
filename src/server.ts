@@ -313,9 +313,9 @@ app.post('/api/source/lists/:id/import-attio', apiAuth, async (c) => {
   const list = camp.getLeadList(c.get('tenantId'), id)
   if (!list) return c.json({ ok: false, error: 'list not found' }, 404)
   try {
-    const b = (await c.req.json()) as { object?: string; listId?: string; mapping?: attio.AttioMapping }
+    const b = (await c.req.json()) as { object?: string; listId?: string; mapping?: attio.AttioMapping; filter?: attio.AttioFilterConfig }
     if (!b.object || !b.mapping) return c.json({ ok: false, error: 'object and mapping required' }, 400)
-    const pull = await attio.pullContacts(key, { object: b.object, listId: b.listId || undefined, mapping: b.mapping })
+    const pull = await attio.pullContacts(key, { object: b.object, listId: b.listId || undefined, mapping: b.mapping, filter: b.filter })
     const rows = pull.contacts.map((ct) => ({
       name: ct.name,
       phone: ct.phone || '',
@@ -326,7 +326,7 @@ app.post('/api/source/lists/:id/import-attio', apiAuth, async (c) => {
       vars: ct.vars,
     }))
     const added = camp.addListRows(c.get('tenantId'), id, rows)
-    return c.json({ ok: true, added, total: pull.total, skippedNoPhone: pull.skipped.noPhone })
+    return c.json({ ok: true, added, total: pull.total, skippedNoPhone: pull.skipped.noPhone, skippedSuppressed: pull.skipped.suppressed })
   } catch (e) {
     return c.json({ ok: false, error: (e as Error).message }, 400)
   }
@@ -541,6 +541,24 @@ app.get('/api/attio/objects/:obj/lists', apiAuth, async (c) => {
   }
 })
 
+// Auto-mapping: suggest which attributes are phone/name/email/IG/link (skipping empty fields),
+// so the UI fills the mapping in for the user instead of asking them to pick every column.
+app.get('/api/attio/objects/:obj/suggest', apiAuth, async (c) => {
+  const key = attioKey(c)
+  if (!key) return c.json({ ok: false, error: 'connect Attio first' }, 400)
+  const obj = c.req.param('obj')
+  try {
+    const attrs = await attio.listObjectAttributes(key, obj)
+    const coverage = await attio.sampleCoverage(key, obj).catch(() => ({}))
+    const channelSlug = attio.channelSelectSlug(attrs)
+    const channelOptions = channelSlug ? await attio.listSelectOptions(key, obj, channelSlug).catch(() => []) : []
+    const hasEmail = attrs.some((a) => a.type === 'email-address')
+    return c.json({ ok: true, mapping: attio.suggestMapping(attrs, coverage), coverage, channelOptions, hasEmail })
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 400)
+  }
+})
+
 // --- saved lead lists (the sources a campaign's Lead-list block pulls from) ---
 app.get('/api/lists', apiAuth, (c) => c.json({ ok: true, lists: camp.listLeadLists(c.get('tenantId')) }))
 
@@ -561,12 +579,19 @@ app.post('/api/lists/attio', apiAuth, async (c) => {
   const key = attioKey(c)
   if (!key) return c.json({ ok: false, error: 'connect Attio first' }, 400)
   try {
-    const b = (await c.req.json()) as { name?: string; object?: string; listId?: string; mapping?: attio.AttioMapping }
+    const b = (await c.req.json()) as {
+      name?: string
+      object?: string
+      listId?: string
+      mapping?: attio.AttioMapping
+      filter?: attio.AttioFilterConfig
+    }
     if (!b.object || !b.mapping) return c.json({ ok: false, error: 'object and mapping required' }, 400)
     const id = camp.createAttioList(c.get('tenantId'), (b.name || 'Attio list').trim(), {
       object: b.object,
       listId: b.listId || undefined,
       mapping: b.mapping,
+      filter: b.filter,
     })
     return c.json({ ok: true, id })
   } catch (e) {
