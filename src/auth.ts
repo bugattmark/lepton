@@ -29,6 +29,15 @@ export function findTenantByEmail(email: string): TenantRow | undefined {
   return db.prepare('SELECT * FROM tenants WHERE email = ?').get(email) as TenantRow | undefined
 }
 
+// Create a tenant from a Google sign-in (no password — a random unusable hash is stored).
+export function createTenantWithGoogle(email: string): string {
+  const id = randomUUID()
+  const unusable = hashPassword(randomBytes(32).toString('hex'))
+  db.prepare('INSERT INTO tenants (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)')
+    .run(id, email, unusable, Date.now())
+  return id
+}
+
 // --- sessions (random opaque token, stored server-side) ---
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30 // 30 days
 

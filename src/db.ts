@@ -136,6 +136,21 @@ addColumn('campaign_contacts', 'account_id', 'TEXT') // which number sends THIS 
 addColumn('campaign_contacts', 'node_id', 'TEXT') // where this lead currently sits in the sequence
 addColumn('campaign_contacts', 'next_due_at', 'INTEGER') // earliest time to act on this lead (wait blocks)
 
+// --- Instagram connection (creator authorizes their own account via Business Login) ---
+addColumn('tenants', 'ig_user_id', 'TEXT') // their Instagram professional account ID
+addColumn('tenants', 'ig_username', 'TEXT') // their @handle
+addColumn('tenants', 'ig_access_token', 'TEXT') // long-lived (60d) token, encrypted at rest
+addColumn('tenants', 'ig_token_expires_at', 'INTEGER') // epoch ms; refreshed lazily before expiry
+addColumn('tenants', 'ig_connected_at', 'INTEGER') // when they first connected
+
+// --- Google connection ("Continue with Google" + Gmail read/send) ---
+addColumn('tenants', 'google_email', 'TEXT') // the Google account email they connected
+addColumn('tenants', 'google_sub', 'TEXT') // stable Google user id (OIDC 'sub')
+addColumn('tenants', 'google_access_token', 'TEXT') // short-lived access token
+addColumn('tenants', 'google_refresh_token', 'TEXT') // long-lived refresh token (offline access)
+addColumn('tenants', 'google_token_expires_at', 'INTEGER') // epoch ms; refreshed lazily before expiry
+addColumn('tenants', 'google_connected_at', 'INTEGER') // when they first connected Google
+
 // The checklist: which WhatsApp numbers a campaign sends from (sends rotate across them).
 db.exec(`
   CREATE TABLE IF NOT EXISTS campaign_accounts (
@@ -157,6 +172,27 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_lead_lists_tenant ON lead_lists(tenant_id);
+
+  -- Onboarding state, one row per tenant. The /start-onboarding wizard writes here;
+  -- the /dashboard reads it (shared contract). intake_* = the 2-step intake answers;
+  -- steps_done = JSON array of completed onboarding-step keys; completed_at set when finished.
+  CREATE TABLE IF NOT EXISTS onboarding (
+    tenant_id         TEXT PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+    name              TEXT,                 -- "Your Name"
+    roles             TEXT,                 -- JSON array: "Who are you?" (multi)
+    pitch_to          TEXT,                 -- "Who do you want to pitch to?" (free text)
+    journey           TEXT,                 -- "Where are you in your brand deal journey?" (single)
+    heard_from        TEXT,                 -- "How did you hear about us?" (single)
+    brand_categories  TEXT,                 -- JSON array: "What brand categories..." (multi)
+    link              TEXT,                 -- onboarding step: "Add a Link"
+    pitch_template    TEXT,                 -- onboarding step: pitch email body
+    followup_template TEXT,                 -- onboarding step: follow-up email body
+    steps_done        TEXT NOT NULL DEFAULT '[]', -- JSON array of completed step keys
+    pitches_sent      INTEGER NOT NULL DEFAULT 0,  -- progress toward "Send 10 Brand Pitches"
+    intake_done_at    INTEGER,              -- when the 2-step intake was submitted
+    completed_at      INTEGER,              -- when all onboarding steps finished (-> /dashboard)
+    updated_at        INTEGER NOT NULL
+  );
 `)
 
 export interface TenantRow {
@@ -166,6 +202,35 @@ export interface TenantRow {
   created_at: number
   attio_api_key?: string | null
   api_token?: string | null
+  ig_user_id?: string | null
+  ig_username?: string | null
+  ig_access_token?: string | null
+  ig_token_expires_at?: number | null
+  ig_connected_at?: number | null
+  google_email?: string | null
+  google_sub?: string | null
+  google_access_token?: string | null
+  google_refresh_token?: string | null
+  google_token_expires_at?: number | null
+  google_connected_at?: number | null
+}
+
+export interface OnboardingRow {
+  tenant_id: string
+  name: string | null
+  roles: string | null
+  pitch_to: string | null
+  journey: string | null
+  heard_from: string | null
+  brand_categories: string | null
+  link: string | null
+  pitch_template: string | null
+  followup_template: string | null
+  steps_done: string
+  pitches_sent: number
+  intake_done_at: number | null
+  completed_at: number | null
+  updated_at: number
 }
 
 export interface AccountRow {

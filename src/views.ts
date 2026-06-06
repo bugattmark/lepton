@@ -35,6 +35,9 @@ a{color:inherit}
 .card p{font-size:14px;color:var(--muted)}
 .authbox{max-width:380px;margin:64px auto;border:1px solid var(--line);border-radius:16px;padding:32px}
 .authbox h2{font-size:24px;letter-spacing:-.02em;margin-bottom:20px}
+.authdiv{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--muted);font-size:13px}
+.authdiv:before,.authdiv:after{content:'';flex:1;height:1px;background:var(--line)}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none}
 label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
 input,select,textarea{width:100%;border:1px solid #000;border-radius:8px;padding:11px 12px;font-size:15px;font-family:inherit;background:#fff}
 input:focus,select:focus,textarea:focus{outline:2px solid #000;outline-offset:1px}
@@ -134,10 +137,439 @@ export function authView(mode: 'login' | 'signup', error?: string): string {
          <input id="password" name="password" type="password" autocomplete="${isSignup ? 'new-password' : 'current-password'}" minlength="8" required>
          <button class="btn full" type="submit">${isSignup ? 'Create account' : 'Log in'}</button>
        </form>
+       <div class="authdiv"><span>or</span></div>
+       <a class="btn ghost full gbtn" href="/auth/google">
+         <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+         Continue with Google
+       </a>
        <p class="muted center mt">
          ${isSignup ? "Already have an account? <a href='/login'>Log in</a>" : "New here? <a href='/signup'>Create an account</a>"}
        </p>
      </div>`,
+  )
+}
+
+// Onboarding dashboard (/dashboard). Layout + copy mirror the reference exactly; rendered B&W.
+// Step state (done / active / locked) is driven by the per-tenant onboarding snapshot.
+interface OnboardingSnap {
+  stepsDone: string[]
+  pitchesSent: number
+  pitchGoal: number
+}
+export function onboardingView(_email: string, snap?: OnboardingSnap): string {
+  const linkIcon =
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+  const lockIcon =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+  const checkIcon =
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+  const ringIcon =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>'
+  const refreshIcon =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
+
+  const sent = snap?.pitchesSent ?? 0
+  const goal = snap?.pitchGoal ?? 10
+  const progress = (className: string): string =>
+    `<div class="ob-progress">
+       <div class="ob-prow">
+         <span class="ob-ptitle ${className}">Progress ${refreshIcon}</span>
+         <span class="ob-pcount">${sent} / ${goal} emails sent</span>
+       </div>
+       <div class="ob-pbar"><div class="ob-pfill" style="width:${Math.min(100, Math.round((sent / goal) * 100))}%"></div></div>
+     </div>`
+
+  // Steps in order. A step is the "active" one when it's the first not-yet-done step.
+  const steps = [
+    {
+      key: 'link',
+      title: 'Add a Link',
+      badge: '&lt;1 min',
+      desc: 'Social link, website, portfolio, company page — anywhere brands can see your work.',
+      button: '<a class="ob-btn" href="#" id="obAddLink">ADD A LINK <span class="ob-arrow">→</span></a>',
+    },
+    {
+      key: 'pitch',
+      title: 'Create Your Pitch Template',
+      desc: 'Write the email Bento sends to brands. Strong templates roughly 3x your reply rate.',
+    },
+    {
+      key: 'followup',
+      title: 'Create Follow-Up Template',
+      desc: 'Most replies come from follow-ups — set this up once and Bento sends them automatically.',
+    },
+    {
+      key: 'first_send',
+      title: 'Send a first email with a follow up',
+      desc: "Send a pitch with a follow-up scheduled right after — Bento sends it automatically if they don't reply.",
+    },
+    {
+      key: 'ten_pitches',
+      title: 'Send 10 Brand Pitches',
+      desc: 'Browse brands matched to your niche and send your first 10 pitches to finish onboarding.',
+    },
+  ] as { key: string; title: string; badge?: string; desc: string; button?: string }[]
+
+  const done = new Set(snap?.stepsDone ?? [])
+  const firstUndone = steps.findIndex((s) => !done.has(s.key))
+
+  const rows = steps
+    .map((s, i) => {
+      const isDone = done.has(s.key)
+      const isActive = !isDone && i === firstUndone
+      const extra = s.key === 'ten_pitches' ? progress(isDone ? '' : isActive ? '' : 'ob-mutedp') : ''
+
+      if (isDone) {
+        return `<div class="ob-step ob-done">
+           <div class="ob-ico ob-ico-done">${checkIcon}</div>
+           <div class="ob-body">
+             <div class="ob-title">${s.title}</div>
+             <p class="ob-desc">${s.desc}</p>
+             ${extra}
+           </div>
+         </div>`
+      }
+      if (isActive) {
+        const ico = s.key === 'link' ? `<div class="ob-ico ob-ico-link">${linkIcon}</div>` : `<div class="ob-ico ob-ico-link">${ringIcon}</div>`
+        const badge = s.badge ? ` <span class="ob-badge">${s.badge}</span>` : ''
+        return `<div class="ob-step ob-active">
+           ${ico}
+           <div class="ob-body">
+             <div class="ob-title">${s.title}${badge}</div>
+             <p class="ob-desc">${s.desc}</p>
+             ${s.button ?? ''}
+             ${extra}
+           </div>
+         </div>`
+      }
+      // locked: count how many earlier steps are still incomplete
+      const remaining = steps.slice(0, i).filter((p) => !done.has(p.key)).length
+      const note = `· Finish ${remaining} step${remaining === 1 ? '' : 's'} above first`
+      return `<div class="ob-step ob-locked">
+         <div class="ob-ico ob-ico-lock">${lockIcon}</div>
+         <div class="ob-body">
+           <div class="ob-title">${s.title} <span class="ob-note">${note}</span></div>
+           <p class="ob-desc">${s.desc}</p>
+           ${extra}
+         </div>
+       </div>`
+    })
+    .join('\n')
+
+  const trash =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+
+  const modal =
+    `<div id="lmBack" class="lm-back" style="display:none">
+       <div class="lm">
+         <h2 class="lm-h">Add Portfolio Link</h2>
+         <div class="lm-card">
+           <p class="lm-sub">Please share your most active social links below</p>
+           <div id="lmRows"></div>
+           <button id="lmAdd" class="lm-add" type="button">ADD LINK +</button>
+         </div>
+         <p id="lmErr" class="lm-err"></p>
+         <div class="lm-foot">
+           <button id="lmCancel" class="lm-cancel" type="button">CANCEL</button>
+           <button id="lmSave" class="lm-save" type="button">SAVE</button>
+         </div>
+       </div>
+     </div>
+     <script>
+     (function(){
+       var TRASH='${trash}';
+       var back=document.getElementById('lmBack');
+       var rows=document.getElementById('lmRows');
+       var err=document.getElementById('lmErr');
+       var PFX={instagram:'https://instagram.com/',tiktok:'https://tiktok.com/@',youtube:'https://youtube.com/@',x:'https://x.com/',linkedin:'https://linkedin.com/in/',website:'',other:''};
+       var PLATS=[['instagram','Instagram'],['tiktok','TikTok'],['youtube','YouTube'],['x','X (Twitter)'],['linkedin','LinkedIn'],['website','Website'],['other','Other']];
+       function opts(){var h='';for(var i=0;i<PLATS.length;i++){h+='<option value="'+PLATS[i][0]+'">'+PLATS[i][1]+'</option>';}return h;}
+       function addRow(){
+         var row=document.createElement('div');row.className='lm-row';
+         row.innerHTML='<select class="lm-plat">'+opts()+'</select>'
+           +'<div class="lm-field"><span class="lm-pfx">https://instagram.com/</span><input class="lm-url" placeholder="handle"></div>'
+           +'<button class="lm-del" type="button" title="Remove">'+TRASH+'</button>';
+         rows.appendChild(row);
+         var sel=row.querySelector('.lm-plat');var pfx=row.querySelector('.lm-pfx');var inp=row.querySelector('.lm-url');
+         sel.onchange=function(){var p=PFX[sel.value];if(p){pfx.style.display='';pfx.textContent=p;inp.placeholder='handle';}else{pfx.style.display='none';inp.placeholder='https://your-site.com';}};
+         row.querySelector('.lm-del').onclick=function(){if(rows.children.length>1){rows.removeChild(row);}};
+       }
+       function open(e){if(e){e.preventDefault();}if(!rows.children.length){addRow();}err.textContent='';back.style.display='flex';}
+       function close(){back.style.display='none';}
+       var trigger=document.getElementById('obAddLink');
+       if(trigger){trigger.onclick=open;}
+       document.getElementById('lmAdd').onclick=function(){addRow();};
+       document.getElementById('lmCancel').onclick=close;
+       back.onclick=function(e){if(e.target===back){close();}};
+       document.getElementById('lmSave').onclick=function(){
+         err.textContent='';
+         var list=rows.querySelectorAll('.lm-row');var urls=[];
+         for(var i=0;i<list.length;i++){
+           var plat=list[i].querySelector('.lm-plat').value;
+           var v=list[i].querySelector('.lm-url').value.trim();
+           if(!v){continue;}
+           var p=PFX[plat];
+           var u=p?(p+v):(/^https?:\\/\\//i.test(v)?v:'https://'+v);
+           urls.push(u);
+         }
+         if(!urls.length){err.textContent='Add at least one link.';return;}
+         var btn=document.getElementById('lmSave');btn.disabled=true;btn.textContent='SAVING…';
+         fetch('/api/onboarding/link',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({link:urls[0]})})
+           .then(function(r){return r.json();})
+           .then(function(j){if(j&&j.ok){location.reload();}else{err.textContent=(j&&j.error)||'Could not save.';btn.disabled=false;btn.textContent='SAVE';}})
+           .catch(function(){err.textContent='Network error.';btn.disabled=false;btn.textContent='SAVE';});
+       };
+     })();
+     </script>`
+
+  return page(
+    'Dashboard',
+    `<div class="ob-page">
+       <div class="ob-panel">
+         <div class="ob-label">ONBOARDING STEPS</div>
+         ${rows}
+       </div>
+     </div>
+     ${modal}
+     <style>
+       .ob-page{max-width:860px;margin:0 auto;padding:40px 24px}
+       .ob-panel{border:1px solid var(--line);border-radius:18px;padding:28px}
+       .ob-label{font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--muted);margin-bottom:18px}
+       .ob-step{display:flex;gap:18px;border-radius:14px;padding:22px 24px;margin-bottom:14px}
+       .ob-step:last-child{margin-bottom:0}
+       .ob-active{background:#fff;border:1px solid #000;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+       .ob-locked{background:#f6f6f6;border:1px solid #f6f6f6}
+       .ob-ico{flex:0 0 auto;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+       .ob-ico-link{background:#efefef;color:#000}
+       .ob-ico-lock{background:#ececec;color:#aaa}
+       .ob-body{flex:1;min-width:0}
+       .ob-title{font-size:20px;font-weight:700;letter-spacing:-.01em;color:#000;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+       .ob-locked .ob-title{color:#9a9a9a}
+       .ob-note{font-size:15px;font-weight:400;color:#b3b3b3}
+       .ob-badge{display:inline-block;background:#000;color:#fff;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600}
+       .ob-desc{margin-top:8px;font-size:16px;color:#444}
+       .ob-locked .ob-desc{color:#b3b3b3}
+       .ob-btn{display:inline-flex;align-items:center;gap:10px;margin-top:16px;background:#fff;color:#000;border:1px solid #000;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer}
+       .ob-btn:hover{background:#000;color:#fff}
+       .ob-arrow{font-weight:400}
+       .ob-progress{margin-top:18px}
+       .ob-prow{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+       .ob-ptitle{display:inline-flex;align-items:center;gap:8px;font-size:16px;color:#7a7a7a}
+       .ob-pcount{font-size:17px;font-weight:700;color:#000}
+       .ob-pbar{height:8px;border-radius:999px;background:#e5e5e5;overflow:hidden}
+       .ob-pfill{height:100%;background:#000;border-radius:999px}
+       .ob-mutedp{color:#b3b3b3}
+       .ob-done{background:#fff;border:1px solid var(--line)}
+       .ob-ico-done{background:#000;color:#fff}
+       /* Add Portfolio Link modal */
+       .lm-back{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:80;padding:24px}
+       .lm{background:#fff;border-radius:18px;width:100%;max-width:640px;padding:28px}
+       .lm-h{font-size:26px;letter-spacing:-.02em;margin:0 0 18px}
+       .lm-card{border:1px solid var(--line);border-radius:14px;padding:20px}
+       .lm-sub{font-size:16px;color:#333;margin-bottom:14px}
+       .lm-row{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+       .lm-plat{width:180px;flex:0 0 auto}
+       .lm-field{flex:1;display:flex;align-items:center;border:1px solid #000;border-radius:8px;padding:0 12px;min-width:0}
+       .lm-field:focus-within{outline:2px solid #000;outline-offset:1px}
+       .lm-pfx{color:var(--muted);font-size:15px;white-space:nowrap}
+       .lm-url{border:none;outline:none;padding:11px 6px;flex:1;min-width:0}
+       .lm-url:focus{outline:none}
+       .lm-del{flex:0 0 auto;background:none;border:none;color:var(--muted);cursor:pointer;padding:6px;display:flex;align-items:center}
+       .lm-del:hover{color:#000}
+       .lm-add{background:none;border:none;color:#000;font-weight:700;letter-spacing:.04em;cursor:pointer;padding:4px 0;font-size:14px;text-transform:uppercase}
+       .lm-err{color:#000;font-size:14px;min-height:18px;margin-top:10px}
+       .lm-foot{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:12px}
+       .lm-cancel{background:none;border:none;color:#000;font-weight:700;letter-spacing:.04em;cursor:pointer;text-transform:uppercase;font-size:14px}
+       .lm-save{background:#000;color:#fff;border:1px solid #000;border-radius:10px;padding:12px 26px;font-weight:700;letter-spacing:.04em;cursor:pointer;text-transform:uppercase;font-size:14px}
+       .lm-save:hover{background:#222}
+       .lm-save:disabled{opacity:.6;cursor:default}
+     </style>`,
+  )
+}
+
+// /start-onboarding — the 2-step intake wizard. Layout + copy mirror the reference exactly.
+// On finish it POSTs to /api/onboarding/intake (stores per-tenant) and migrates to /dashboard.
+// NOTE: the <script> is inside this template literal — no backticks / ${...} allowed in it.
+export function startOnboardingView(_email: string): string {
+  return page(
+    'Get started',
+    `<div class="sob">
+       <div class="sob-top"><span class="sob-pill" id="stepPill">Step 1/2</span></div>
+       <h1 class="sob-h" id="stepTitle">Let's Get To Know You ✍️</h1>
+       <div id="errBar" class="sob-err" style="display:none"></div>
+
+       <section id="step1" class="sob-card">
+         <label class="sob-lab">Your Name <span class="req">*</span></label>
+         <input id="f_name" class="sob-in" placeholder="Your name" autocomplete="name">
+
+         <label class="sob-lab">Who are you? <span class="req">*</span></label>
+         <div class="sob-dd" id="rolesDD">
+           <button type="button" class="sob-ddbtn" id="rolesBtn"><span class="ph">Select all that apply</span><span class="car">▾</span></button>
+           <div class="sob-ddpanel" id="rolesPanel" style="display:none"></div>
+         </div>
+
+         <label class="sob-lab">Who do you want to pitch to? <span class="req">*</span></label>
+         <input id="f_pitch" class="sob-in" placeholder="Restaurant managers, PR team, Event sponsors, Influencers, Marketing managers...">
+
+         <div class="sob-sub">
+           <div class="sob-subh">Where are you in your brand deal journey?</div>
+           <div class="sob-subnote">Select an option below.</div>
+           <div class="sob-pills" id="journeyPills"></div>
+         </div>
+
+         <div class="sob-sub">
+           <div class="sob-subh">How did you hear about us?</div>
+           <div class="sob-subnote">Select an option below.</div>
+           <div class="sob-pills" id="heardPills"></div>
+         </div>
+       </section>
+
+       <section id="step2" class="sob-card" style="display:none">
+         <div class="sob-subh">What brand categories do you want to see?</div>
+         <div class="sob-subnote">Select all categories you want to see. You can always change this later.</div>
+         <div class="sob-pills" id="catPills" style="margin-top:18px"></div>
+       </section>
+
+       <div class="sob-foot">
+         <button type="button" class="sob-back" id="backBtn" style="visibility:hidden">⟵ BACK</button>
+         <button type="button" class="sob-next" id="nextBtn">NEXT <span>➔</span></button>
+       </div>
+     </div>
+     <style>
+       body{background:#f6f5f1}
+       .sob{max-width:1000px;margin:0 auto;padding:36px 24px 80px}
+       .sob-top{display:flex;justify-content:center;margin-bottom:22px}
+       .sob-pill{border:1px solid #111;border-radius:999px;padding:8px 20px;font-size:15px;font-weight:600;background:#fff}
+       .sob-h{text-align:center;font-size:46px;letter-spacing:-.02em;margin-bottom:26px}
+       .sob-err{max-width:880px;margin:0 auto 16px;background:#111;color:#fff;border-radius:10px;padding:12px 16px;font-size:14px}
+       .sob-card{background:#fff;border-radius:22px;padding:34px 38px;box-shadow:0 1px 2px rgba(0,0,0,.04);max-width:880px;margin:0 auto}
+       .sob-lab{display:block;font-size:17px;font-weight:500;margin:22px 0 8px;color:#111}
+       .sob-lab:first-child{margin-top:0}
+       .req{color:#111}
+       .sob-in{width:100%;border:1px solid #d9d7d0;border-radius:14px;padding:16px 18px;font-size:16px;background:#fff;font-family:inherit}
+       .sob-in:focus{outline:none;border-color:#111}
+       .sob-in::placeholder{color:#a8a49a}
+       .sob-dd{position:relative}
+       .sob-ddbtn{width:100%;text-align:left;border:1px solid #d9d7d0;border-radius:14px;padding:16px 18px;font-size:16px;background:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+       .sob-ddbtn .ph{color:#a8a49a}
+       .sob-ddpanel{position:absolute;z-index:20;left:0;right:0;margin-top:6px;background:#fff;border:1px solid #111;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.14);padding:8px;max-height:280px;overflow:auto}
+       .sob-ddopt{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:10px;cursor:pointer;font-size:15px}
+       .sob-ddopt:hover{background:#f4f3ef}
+       .sob-ddopt input{width:auto}
+       .sob-sub{border:1px solid #ece9e2;border-radius:16px;padding:22px 24px;margin-top:22px}
+       .sob-subh{font-size:18px;font-weight:600;color:#111}
+       .sob-subnote{font-size:14px;color:#8a867c;margin-top:4px}
+       .sob-pills{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+       .sob-chip{border:1px solid #d9d7d0;border-radius:999px;padding:11px 18px;font-size:15px;background:#fff;cursor:pointer;user-select:none;line-height:1.2}
+       .sob-chip:hover{border-color:#111}
+       .sob-chip.on{background:#111;color:#fff;border-color:#111}
+       .sob-foot{max-width:880px;margin:26px auto 0;display:flex;justify-content:space-between;align-items:center}
+       .sob-back{background:none;border:none;color:#14492e;font-weight:700;font-size:15px;letter-spacing:.04em;cursor:pointer}
+       .sob-next{background:#14492e;color:#fff;border:none;border-radius:12px;padding:15px 30px;font-size:15px;font-weight:700;letter-spacing:.04em;cursor:pointer;display:inline-flex;gap:10px;align-items:center}
+       .sob-next:hover{background:#0e3a24}
+       .sob-next[disabled]{opacity:.6;cursor:default}
+       @media(max-width:680px){.sob-h{font-size:32px}.sob-card{padding:24px}}
+     </style>
+     <script>
+       (function(){
+         var ROLES=["Creator / Influencer","UGC Creator","Founder / Business Owner","Marketer","Agency / Manager","Freelancer","Other"];
+         var JOURNEY=[
+           {e:"\\uD83C\\uDF31",t:"Brand new - working toward my first deal"},
+           {e:"\\u2709\\uFE0F",t:"Done some creator work, but new to pitching"},
+           {e:"\\uD83D\\uDD01",t:"Tried pitching, want better results"},
+           {e:"\\uD83D\\uDCBC",t:"I work with brands regularly and want to streamline my workflow"}
+         ];
+         var HEARD=["From a friend or colleague","Instagram","TikTok","Google","Twitter / X","Community Group/Course","YouTube","Other"];
+         var CATS=["Fashion","Women's Fashion","Men's Fashion","Activewear","Fashion Accessories","Beauty & Personal Care","Travel","Vehicles & Transportation","Baby, Kids, & Family","Apps & Software","Games & Entertainment","Home","Technology & Electronics","Lifestyle","Arts & Crafts","Health & Wellness","Sports & Fitness","Pets","Food & Beverage","Professional Services","Education","General Retailers & E-Commerce Platforms"];
+         var state={name:"",roles:[],pitchTo:"",journey:"",heardFrom:"",brandCategories:[]};
+         var step=1;
+         function el(id){return document.getElementById(id);}
+         function showErr(m){var b=el("errBar");if(!m){b.style.display="none";return;}b.textContent=m;b.style.display="block";window.scrollTo({top:0,behavior:"smooth"});}
+
+         // roles multiselect
+         var panel=el("rolesPanel");
+         ROLES.forEach(function(r){
+           var lab=document.createElement("label");lab.className="sob-ddopt";
+           var cb=document.createElement("input");cb.type="checkbox";cb.value=r;
+           cb.addEventListener("change",function(){
+             if(cb.checked){if(state.roles.indexOf(r)<0)state.roles.push(r);}
+             else{state.roles=state.roles.filter(function(x){return x!==r;});}
+             paintRoles();
+           });
+           lab.appendChild(cb);lab.appendChild(document.createTextNode(r));panel.appendChild(lab);
+         });
+         function paintRoles(){
+           var btn=el("rolesBtn");
+           if(state.roles.length){btn.innerHTML="<span>"+state.roles.join(", ")+"</span><span class=car>\\u25BE</span>";}
+           else{btn.innerHTML="<span class=ph>Select all that apply</span><span class=car>\\u25BE</span>";}
+         }
+         el("rolesBtn").addEventListener("click",function(e){e.stopPropagation();panel.style.display=panel.style.display==="none"?"block":"none";});
+         document.addEventListener("click",function(e){if(!el("rolesDD").contains(e.target))panel.style.display="none";});
+
+         // single-select pills
+         function pills(container,items,key){
+           var box=el(container);
+           items.forEach(function(it){
+             var label=(typeof it==="string")?it:(it.e+" "+it.t);
+             var val=(typeof it==="string")?it:it.t;
+             var c=document.createElement("div");c.className="sob-chip";c.textContent=label;
+             c.addEventListener("click",function(){
+               state[key]=(state[key]===val)?"":val;
+               Array.prototype.forEach.call(box.children,function(ch){ch.classList.remove("on");});
+               if(state[key])c.classList.add("on");
+             });
+             box.appendChild(c);
+           });
+         }
+         pills("journeyPills",JOURNEY,"journey");
+         pills("heardPills",HEARD,"heardFrom");
+
+         // multi-select category pills
+         var catBox=el("catPills");
+         CATS.forEach(function(cat){
+           var c=document.createElement("div");c.className="sob-chip";c.textContent=cat;
+           c.addEventListener("click",function(){
+             var i=state.brandCategories.indexOf(cat);
+             if(i<0){state.brandCategories.push(cat);c.classList.add("on");}
+             else{state.brandCategories.splice(i,1);c.classList.remove("on");}
+           });
+           catBox.appendChild(c);
+         });
+
+         function gotoStep(n){
+           step=n;
+           el("step1").style.display=(n===1)?"block":"none";
+           el("step2").style.display=(n===2)?"block":"none";
+           el("stepPill").textContent="Step "+n+"/2";
+           el("stepTitle").textContent=(n===1)?"Let's Get To Know You \\u270D\\uFE0F":"Your Brand Types \\uD83D\\uDDC2\\uFE0F";
+           el("backBtn").style.visibility=(n===2)?"visible":"hidden";
+           showErr("");window.scrollTo({top:0,behavior:"smooth"});
+         }
+         el("backBtn").addEventListener("click",function(){gotoStep(1);});
+
+         el("nextBtn").addEventListener("click",function(){
+           if(step===1){
+             state.name=el("f_name").value.trim();
+             state.pitchTo=el("f_pitch").value.trim();
+             if(!state.name)return showErr("Please enter your name.");
+             if(!state.roles.length)return showErr("Please select who you are.");
+             if(!state.pitchTo)return showErr("Please tell us who you want to pitch to.");
+             gotoStep(2);return;
+           }
+           if(!state.brandCategories.length)return showErr("Pick at least one brand category.");
+           var btn=el("nextBtn");btn.disabled=true;btn.textContent="Saving…";
+           fetch("/api/onboarding/intake",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(state)})
+             .then(function(r){return r.json();})
+             .then(function(j){
+               if(j&&j.ok){window.location=j.next||"/dashboard";}
+               else{btn.disabled=false;btn.innerHTML="NEXT <span>\\u2794</span>";showErr((j&&j.error)||"Something went wrong. Try again.");}
+             })
+             .catch(function(){btn.disabled=false;btn.innerHTML="NEXT <span>\\u2794</span>";showErr("Network error. Try again.");});
+         });
+
+         paintRoles();
+       })();
+     </script>`,
   )
 }
 
@@ -350,6 +782,22 @@ export function dashboardView(email: string): string {
            </div>
            <p class="mono mt" id="accResult"></p>
          </div>
+
+         <div class="card mt">
+           <h3>Instagram</h3>
+           <p class="hint">Connect your Instagram (professional account) to pull your real audience — follower age, gender and location — straight from Meta.</p>
+           <p class="mono mt" id="igFlash"></p>
+           <div id="igConnect" class="mt">
+             <a class="btn" id="igConnectBtn" href="/connect/instagram">Connect Instagram</a>
+             <p class="hint mt" id="igUnconfigured" style="display:none">Instagram isn't set up on this server yet (missing app credentials).</p>
+           </div>
+           <div id="igOk" class="mt" style="display:none">
+             <div class="flex"><b>@<span id="igUser"></span></b><span class="badge connected">connected</span></div>
+             <div class="acctmeta" id="igMeta"></div>
+             <div class="flex mt"><button class="btn ghost sm" id="igReport">View audience</button><button class="x" id="igDisc">disconnect</button></div>
+             <pre id="igReportBox" class="mono mt" style="display:none;white-space:pre-wrap"></pre>
+           </div>
+         </div>
        </aside>
 
        <div class="col-right">
@@ -517,6 +965,26 @@ export function dashboardView(email: string): string {
          if($('#wbToggle'))$('#wbToggle').checked=j.writeback;
          if(j.attioConnected&&$('#attioConnect')){$('#attioConnect').style.display='none';$('#attioOk').style.display='';$('#attioWs').textContent='connected';}});}
        $('#tokBtn').onclick=function(){J('/api/token').then(function(j){$('#tokVal').textContent=j.ok?j.token:(j.error||'failed');});};
+
+       /* ===================== MAIN: Instagram ===================== */
+       (function igFlash(){var q=new URLSearchParams(location.search).get('ig');if(!q)return;
+         var msg={connected:'Instagram connected ✓',denied:'Connection cancelled.',badstate:'Connection expired — please try again.',error:'Connection failed — make sure it\\'s a professional account.',unconfigured:'Instagram isn\\'t set up on this server yet.'}[q];
+         if($('#igFlash')&&msg)$('#igFlash').textContent=msg;
+         history.replaceState(null,'',location.pathname);})();
+       function loadIg(){if(!$('#igConnect'))return;return J('/api/instagram/status').then(function(j){if(!j.ok)return;
+         if(!j.configured){if($('#igConnectBtn'))$('#igConnectBtn').style.display='none';if($('#igUnconfigured'))$('#igUnconfigured').style.display='';return;}
+         if(j.connected){$('#igConnect').style.display='none';$('#igOk').style.display='';$('#igUser').textContent=j.username||'';
+           if(j.expiresAt){var days=Math.max(0,Math.round((j.expiresAt-Date.now())/864e5));$('#igMeta').textContent='Token valid ~'+days+' more days';}}
+         else{$('#igConnect').style.display='';$('#igOk').style.display='none';}});}
+       if($('#igDisc'))$('#igDisc').onclick=function(){if(!confirm('Disconnect Instagram?'))return;POST('/api/instagram/disconnect').then(loadIg);};
+       if($('#igReport'))$('#igReport').onclick=function(){var b=$('#igReportBox');b.style.display='';b.textContent='loading…';
+         J('/api/instagram/report').then(function(j){if(!j.ok){b.textContent=j.error||'failed';return;}
+           var p=j.profile||{},d=j.demographics||{};
+           var top=function(o,n){if(!o)return '—';var ks=Object.keys(o).sort(function(a,b){return o[b]-o[a];}).slice(0,n||3);return ks.length?ks.map(function(k){return k+' '+o[k];}).join(', '):'—';};
+           var out='followers '+(p.followers_count!=null?p.followers_count:'—')+' · '+(p.media_count!=null?p.media_count:'—')+' posts\\n'
+             +'gender: '+top(d.gender,3)+'\\nage: '+top(d.age,4)+'\\ncountry: '+top(d.country,4)+'\\ncity: '+top(d.city,4);
+           if(j.demographicsError)out+='\\n('+j.demographicsError+')';
+           b.textContent=out;});};
 
        /* ===================== MAIN: campaign list ===================== */
        function loadCampaigns(){return J('/api/campaigns').then(function(j){if(!j.ok)return;
@@ -840,7 +1308,7 @@ export function dashboardView(email: string): string {
            if(j.ok){ED.status='running';setStatusBadge();}else alert(j.error||'could not start');});}};
 
        /* boot */
-       loadAccounts().then(loadProfiles).then(loadCampaigns);loadSettings();
+       loadAccounts().then(loadProfiles).then(loadCampaigns);loadSettings();loadIg();
        setInterval(function(){loadAccounts();},4000);
      </script>`,
   )

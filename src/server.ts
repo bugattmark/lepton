@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { secureHeaders } from 'hono/secure-headers'
+import { randomBytes } from 'node:crypto'
 import QRCode from 'qrcode'
 import { db } from './db.ts'
 import {
@@ -16,6 +17,7 @@ import {
 } from './auth.ts'
 import * as acct from './accounts.ts'
 import * as attio from './attio.ts'
+import * as ig from './instagram.ts'
 import * as camp from './campaigns.ts'
 import * as pol from './policy.ts'
 import { startCampaign, pauseCampaign, campaignAccountIds } from './engine.ts'
@@ -24,7 +26,10 @@ import { parseSequence, fallbackSequence, asSend, firstNode, type Sequence } fro
 import { aiAvailable } from './ai.ts'
 import { igLeadAvailable } from './iglead.ts'
 import * as src from './sourcing.ts'
-import { landingView, authView, dashboardView, sourceView, qualifyingView } from './views.ts'
+import * as google from './google.ts'
+import * as onb from './onboarding.ts'
+import { createTenantWithGoogle } from './auth.ts'
+import { landingView, authView, dashboardView, onboardingView, startOnboardingView, sourceView, qualifyingView } from './views.ts'
 
 const isProd = process.env.NODE_ENV === 'production'
 const PORT = Number(process.env.PORT ?? 8080)
@@ -145,7 +150,7 @@ app.post('/signup', async (c) => {
   const tenantId = createTenant(email, password)
   const token = createSession(tenantId)
   setCookie(c, 'sid', token, sessionCookie(token))
-  return c.redirect('/outbound')
+  return c.redirect(postAuthRedirect(tenantId))
 })
 
 app.post('/login', async (c) => {
@@ -158,8 +163,13 @@ app.post('/login', async (c) => {
     return c.html(authView('login', 'Invalid email or password.'), 401)
   const token = createSession(tenant.id)
   setCookie(c, 'sid', token, sessionCookie(token))
-  return c.redirect('/outbound')
+  return c.redirect(postAuthRedirect(tenant.id))
 })
+
+// New / unfinished users land in the intake wizard; everyone else lands on the dashboard.
+function postAuthRedirect(tenantId: string): string {
+  return onb.hasIntake(tenantId) ? '/dashboard' : '/start-onboarding'
+}
 
 app.post('/logout', (c) => {
   deleteSession(getCookie(c, 'sid'))
@@ -168,10 +178,123 @@ app.post('/logout', (c) => {
 })
 
 // --- the three product tabs (auth) ---
+app.get('/dashboard', pageAuth, (c) => c.html(onboardingView(emailOf(c.get('tenantId')), onb.snapshot(c.get('tenantId')))))
 app.get('/outbound', pageAuth, (c) => c.html(dashboardView(emailOf(c.get('tenantId')))))
 app.get('/source', pageAuth, (c) => c.html(sourceView(emailOf(c.get('tenantId')))))
 app.get('/qualifying', pageAuth, (c) => c.html(qualifyingView(emailOf(c.get('tenantId')))))
 app.get('/app', pageAuth, (c) => c.redirect('/outbound')) // back-compat
+
+// --- onboarding (2-step intake wizard; stores per-tenant, then migrates to /dashboard) ---
+app.get('/start-onboarding', pageAuth, (c) => c.html(startOnboardingView(emailOf(c.get('tenantId')))))
+
+app.get('/api/onboarding', apiAuth, (c) => c.json({ ok: true, ...onb.snapshot(c.get('tenantId')) }))
+
+app.post('/api/onboarding/intake', apiAuth, async (c) => {
+  try {
+    const b = (await c.req.json()) as Record<string, any>
+    const name = String(b.name ?? '').trim()
+    const roles = Array.isArray(b.roles) ? b.roles.map(String) : []
+    const pitchTo = String(b.pitchTo ?? '').trim()
+    if (!name) return c.json({ ok: false, error: 'name required' }, 400)
+    if (!roles.length) return c.json({ ok: false, error: 'select who you are' }, 400)
+    if (!pitchTo) return c.json({ ok: false, error: 'tell us who you want to pitch to' }, 400)
+    onb.saveIntake(c.get('tenantId'), {
+      name,
+      roles,
+      pitchTo,
+      journey: String(b.journey ?? ''),
+      heardFrom: String(b.heardFrom ?? ''),
+      brandCategories: Array.isArray(b.brandCategories) ? b.brandCategories.map(String) : [],
+    })
+    return c.json({ ok: true, next: '/dashboard' })
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 400)
+  }
+})
+
+app.post('/api/onboarding/link', apiAuth, async (c) => {
+  const { link } = (await c.req.json()) as { link?: string }
+  if (!link || !/^https?:\/\/.+/i.test(link.trim())) return c.json({ ok: false, error: 'enter a valid URL' }, 400)
+  onb.setLink(c.get('tenantId'), link.trim())
+  return c.json({ ok: true })
+})
+
+app.post('/api/onboarding/pitch-template', apiAuth, async (c) => {
+  const { body } = (await c.req.json()) as { body?: string }
+  if (!body?.trim()) return c.json({ ok: false, error: 'write your pitch' }, 400)
+  onb.setPitchTemplate(c.get('tenantId'), body)
+  return c.json({ ok: true })
+})
+
+app.post('/api/onboarding/followup-template', apiAuth, async (c) => {
+  const { body } = (await c.req.json()) as { body?: string }
+  if (!body?.trim()) return c.json({ ok: false, error: 'write your follow-up' }, 400)
+  onb.setFollowupTemplate(c.get('tenantId'), body)
+  return c.json({ ok: true })
+})
+
+// --- "Continue with Google" + Gmail read/send ---
+// Redirect URI must exactly match one registered on the OAuth client. Defaults to this host.
+function googleRedirectUri(c: import('hono').Context): string {
+  if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI
+  const proto = c.req.header('x-forwarded-proto') ?? (isProd ? 'https' : 'http')
+  return `${proto}://${c.req.header('host')}/auth/google/callback`
+}
+
+// Start OAuth. Works logged-out (sign-in/sign-up) or logged-in (connect Gmail to this tenant).
+app.get('/auth/google', (c) => {
+  if (!google.googleConfigured()) return c.redirect('/login?google=unconfigured')
+  if (limited('google:' + ipOf(c), 20)) return c.redirect('/login?google=ratelimited')
+  const state = randomBytes(16).toString('hex')
+  setCookie(c, 'g_state', state, { httpOnly: true, secure: isProd, sameSite: 'Lax', path: '/', maxAge: 600 })
+  return c.redirect(google.authorizeUrl(googleRedirectUri(c), state))
+})
+
+app.get('/auth/google/callback', async (c) => {
+  if (c.req.query('error')) return c.redirect('/login?google=denied')
+  const code = c.req.query('code')
+  const state = c.req.query('state')
+  const saved = getCookie(c, 'g_state')
+  deleteCookie(c, 'g_state', { path: '/' })
+  if (!code || !state || !saved || state !== saved) return c.redirect('/login?google=badstate')
+
+  const sessionTenant = getSessionTenant(getCookie(c, 'sid'))
+  try {
+    if (sessionTenant) {
+      // logged-in: connect Gmail to the existing tenant
+      await google.completeConnect(sessionTenant, code, googleRedirectUri(c))
+      return c.redirect(onb.hasIntake(sessionTenant) ? '/outbound?google=connected' : '/start-onboarding?google=connected')
+    }
+    // logged-out: exchange once, resolve identity, find-or-create tenant, start a session
+    const r = await google.exchangeAndIdentify(code, googleRedirectUri(c))
+    let tenantId = google.findTenantByGoogleSub(r.sub)
+    if (!tenantId) {
+      const existing = findTenantByEmail(r.email.toLowerCase())
+      tenantId = existing?.id ?? createTenantWithGoogle(r.email.toLowerCase())
+    }
+    google.saveConnection(tenantId, {
+      email: r.email,
+      sub: r.sub,
+      accessToken: r.accessToken,
+      refreshToken: r.refreshToken ?? null,
+      expiresAt: r.expiresAt,
+    })
+    const token = createSession(tenantId)
+    setCookie(c, 'sid', token, sessionCookie(token))
+    return c.redirect(postAuthRedirect(tenantId))
+  } catch {
+    return c.redirect('/login?google=error')
+  }
+})
+
+app.get('/api/google/status', apiAuth, (c) =>
+  c.json({ ok: true, configured: google.googleConfigured(), ...google.getConnection(c.get('tenantId')) }),
+)
+
+app.post('/api/google/disconnect', apiAuth, (c) => {
+  google.clearConnection(c.get('tenantId'))
+  return c.json({ ok: true })
+})
 
 // --- lead sourcing (Source tab): discover handles + find phones, fill a list ---
 app.get('/api/source/lists', apiAuth, (c) => {
@@ -348,6 +471,57 @@ app.put('/api/profiles/:id', apiAuth, async (c) => {
 app.delete('/api/profiles/:id', apiAuth, (c) => {
   camp.deleteProfile(c.get('tenantId'), Number(c.req.param('id')))
   return c.json({ ok: true })
+})
+
+// --- Instagram integration (Business Login: the creator connects their OWN account) ---
+// Redirect URI must exactly match one registered in the Meta App Dashboard. Defaults to the
+// request's own host; override with IG_REDIRECT_URI if you host the callback elsewhere.
+function igRedirectUri(c: import('hono').Context): string {
+  if (process.env.IG_REDIRECT_URI) return process.env.IG_REDIRECT_URI
+  const proto = c.req.header('x-forwarded-proto') ?? (isProd ? 'https' : 'http')
+  return `${proto}://${c.req.header('host')}/auth/instagram/callback`
+}
+
+// Step 1: kick off OAuth. Stores a short-lived state cookie for CSRF, redirects to Instagram.
+app.get('/connect/instagram', pageAuth, (c) => {
+  if (!ig.igConfigured()) return c.redirect('/outbound?ig=unconfigured')
+  const state = randomBytes(16).toString('hex')
+  setCookie(c, 'ig_state', state, { httpOnly: true, secure: isProd, sameSite: 'Lax', path: '/', maxAge: 600 })
+  return c.redirect(ig.authorizeUrl(igRedirectUri(c), state))
+})
+
+// Step 2: Instagram redirects back here with ?code (session cookie rides along on this top-level GET).
+app.get('/auth/instagram/callback', pageAuth, async (c) => {
+  if (c.req.query('error')) return c.redirect('/outbound?ig=denied')
+  const code = c.req.query('code')
+  const state = c.req.query('state')
+  const saved = getCookie(c, 'ig_state')
+  deleteCookie(c, 'ig_state', { path: '/' })
+  if (!code || !state || !saved || state !== saved) return c.redirect('/outbound?ig=badstate')
+  try {
+    await ig.completeConnect(c.get('tenantId'), code, igRedirectUri(c))
+    return c.redirect('/outbound?ig=connected')
+  } catch {
+    return c.redirect('/outbound?ig=error')
+  }
+})
+
+app.get('/api/instagram/status', apiAuth, (c) =>
+  c.json({ ok: true, configured: ig.igConfigured(), ...ig.getConnection(c.get('tenantId')) }),
+)
+
+app.post('/api/instagram/disconnect', apiAuth, (c) => {
+  ig.clearConnection(c.get('tenantId'))
+  return c.json({ ok: true })
+})
+
+// The twin payload: live profile + real follower demographics (age/gender/country/city).
+app.get('/api/instagram/report', apiAuth, async (c) => {
+  try {
+    return c.json({ ok: true, ...(await ig.fetchReport(c.get('tenantId'))) })
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 400)
+  }
 })
 
 // --- Attio integration ---
