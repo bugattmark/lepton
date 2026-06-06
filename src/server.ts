@@ -30,6 +30,8 @@ import * as dedupe from './dedupe.ts'
 import * as qual from './qualify.ts'
 import * as google from './google.ts'
 import * as onb from './onboarding.ts'
+import * as pitchgen from './pitchgen.ts'
+import { fetchPageText } from './ai.ts'
 import { createTenantWithGoogle } from './auth.ts'
 import { landingView, authView, dashboardView, onboardingView, startOnboardingView, sourceView, qualifyingView } from './views.ts'
 
@@ -236,6 +238,46 @@ app.post('/api/onboarding/followup-template', apiAuth, async (c) => {
   if (!body.trim()) return c.json({ ok: false, error: 'write your follow-up' }, 400)
   onb.setFollowupTemplate(c.get('tenantId'), body)
   return c.json({ ok: true })
+})
+
+// "Bento writes it" — generate a reusable pitch template via GPT-5.4-mini + the pitch guide.
+app.post('/api/onboarding/generate-pitch', apiAuth, async (c) => {
+  if (!pitchgen.pitchGenAvailable()) return c.json({ ok: false, error: 'AI is not configured (OPENAI_API_KEY)' }, 400)
+  const b = (await c.req.json().catch(() => ({}))) as {
+    about?: string
+    aboutUrl?: string
+    aboutText?: string
+    work?: string
+    workUrl?: string
+  }
+  const snap = onb.snapshot(c.get('tenantId'))
+  const profile = snap.profile ?? { name: '', roles: [], pitchTo: '', brandCategories: [] }
+
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+  const aboutIsUrl = str(b.about).toLowerCase() !== 'write about yourself' // dropdown: "Portfolio" vs "Write about yourself"
+  const portfolioUrl = str(b.aboutUrl)
+  const workUrl = str(b.workUrl)
+
+  // Best-effort: pull real text from the portfolio + best-work links so the pitch is grounded.
+  const [portfolioText, workText] = await Promise.all([
+    aboutIsUrl && portfolioUrl ? fetchPageText(portfolioUrl) : Promise.resolve(''),
+    workUrl ? fetchPageText(workUrl) : Promise.resolve(''),
+  ])
+
+  const result = await pitchgen.generate({
+    name: profile.name,
+    roles: profile.roles,
+    pitchTo: profile.pitchTo,
+    brandCategories: profile.brandCategories,
+    aboutText: aboutIsUrl ? '' : str(b.aboutText),
+    portfolioUrl: aboutIsUrl ? portfolioUrl : '',
+    portfolioText,
+    workKind: str(b.work),
+    workUrl,
+    workText,
+  })
+  if (!result) return c.json({ ok: false, error: 'could not generate a pitch — try again' }, 502)
+  return c.json({ ok: true, ...result })
 })
 
 // --- "Continue with Google" + Gmail read/send ---
