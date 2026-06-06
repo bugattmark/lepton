@@ -184,7 +184,14 @@ export function onboardingView(_email: string): string {
            </div>
          </div>
 
-         ${locked('Create Your Pitch Template', '· Finish 1 step above first', 'Write the email Bento sends to brands. Strong templates roughly 3x your reply rate.')}
+         <div class="ob-step ob-active">
+           <div class="ob-ico ob-ico-link"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+           <div class="ob-body">
+             <div class="ob-title">Create Your Pitch Template <span class="ob-badge">&lt;1 min</span></div>
+             <p class="ob-desc">Write the email Bento sends to brands. Strong templates roughly 3x your reply rate.</p>
+             <a class="ob-btn" href="#" id="obPitch">CREATE TEMPLATE <span class="ob-arrow">→</span></a>
+           </div>
+         </div>
          ${locked('Create Follow-Up Template', '· Finish 2 steps above first', 'Most replies come from follow-ups — set this up once and Bento sends them automatically.')}
          ${locked('Send a first email with a follow up', '· Finish 3 steps above first', "Send a pitch with a follow-up scheduled right after — Bento sends it automatically if they don't reply.")}
          ${locked('Send 10 Brand Pitches', '· Finish 4 steps above first', 'Browse brands matched to your niche and send your first 10 pitches to finish onboarding.', progress)}
@@ -203,6 +210,49 @@ export function onboardingView(_email: string): string {
          <div class="lnk-foot">
            <a href="#" id="lnkCancel" class="lnk-cancel">CANCEL</a>
            <button id="lnkSave" class="lnk-save" disabled>SAVE</button>
+         </div>
+       </div>
+     </div>
+     <!-- How do you want to write your pitch? modal -->
+     <div id="pchBackdrop" class="pch-backdrop" style="display:none">
+       <div class="pch-modal" role="dialog" aria-modal="true">
+         <button class="pch-x" id="pchClose">&times;</button>
+         <div class="pch-h">How do you want to write your pitch?</div>
+
+         <div class="pch-lbl">Tell us about yourself <span class="req">*</span></div>
+         <div class="pf-dd" id="ddAbout">
+           <button type="button" class="pf-dd-btn">
+             <span class="pf-dd-val">Portfolio</span>
+             <span class="pf-dd-right"><span class="pf-rec">RECOMMENDED</span><svg class="pf-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+           </button>
+           <div class="pf-dd-menu" style="display:none">
+             <div class="pf-opt sel" data-v="portfolio"><div class="pf-opt-t">Portfolio</div><div class="pf-opt-d">Full work example</div></div>
+             <div class="pf-opt" data-v="write"><div class="pf-opt-t">Write about yourself</div><div class="pf-opt-d">A short paragraph in your own words</div></div>
+           </div>
+         </div>
+         <!-- portfolio: later we grab the website html/json/text to use -->
+         <div id="aboutPortfolio" class="pch-inp"><span class="pch-pre">https://</span><input type="text" id="aboutUrl" placeholder="website.com"></div>
+         <textarea id="aboutText" class="pch-ta" placeholder="A short paragraph about yourself, in your own words…" style="display:none"></textarea>
+
+         <div class="pch-lbl" style="margin-top:24px">Show your best work</div>
+         <div class="pch-sub">We'll highlight this in your template</div>
+         <div class="pf-dd" id="ddWork">
+           <button type="button" class="pf-dd-btn">
+             <span class="pf-dd-val">Top performing post</span>
+             <span class="pf-dd-right"><svg class="pf-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+           </button>
+           <div class="pf-dd-menu" style="display:none">
+             <div class="pf-opt sel" data-v="top"><div class="pf-opt-t">Top performing post</div><div class="pf-opt-d">Your best performing content</div></div>
+             <div class="pf-opt" data-v="collab"><div class="pf-opt-t">Brand collab post</div><div class="pf-opt-d">Social proof from a past brand</div></div>
+             <div class="pf-opt" data-v="page"><div class="pf-opt-t">Social media page</div><div class="pf-opt-d">Let brands browse your feed</div></div>
+             <div class="pf-opt" data-v="partnership"><div class="pf-opt-t">Describe your most impressive partnership</div><div class="pf-opt-d">Highlight a notable past brand collaboration</div></div>
+           </div>
+         </div>
+         <div class="pch-inp" id="workLink"><span class="pch-pre">https://</span><input type="text" id="workUrl" placeholder="www.instagram.com/p/your-post-id"></div>
+
+         <div class="pch-foot">
+           <button class="pch-back" id="pchBack">BACK</button>
+           <button class="pch-gen" id="pchGen">GENERATE PITCH</button>
          </div>
        </div>
      </div>
@@ -258,6 +308,35 @@ export function onboardingView(_email: string): string {
        .lnk-cancel{color:#14532d;font-weight:700;font-size:16px;letter-spacing:.04em;text-decoration:none;cursor:pointer;text-transform:uppercase}
        .lnk-save{background:#e6e6e6;color:#9a9a9a;border:none;border-radius:10px;padding:12px 26px;font-size:16px;font-weight:700;letter-spacing:.04em;cursor:not-allowed;text-transform:uppercase}
        .lnk-save.on{background:#14532d;color:#fff;cursor:pointer}
+
+       /* How do you want to write your pitch? modal */
+       .pch-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;z-index:200;padding:40px 20px;overflow:auto}
+       .pch-modal{position:relative;background:#fff;border-radius:16px;width:100%;max-width:920px;padding:40px 46px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+       .pch-x{position:absolute;top:18px;right:24px;background:none;border:none;font-size:26px;line-height:1;color:#b3b3b3;cursor:pointer}
+       .pch-h{font-size:30px;font-weight:700;color:#111;margin-bottom:28px;letter-spacing:-.01em}
+       .pch-lbl{font-size:18px;font-weight:700;color:#111;margin-bottom:10px}
+       .pch-sub{font-size:15px;color:#555;margin:-4px 0 10px}
+       .pf-dd{position:relative;margin-bottom:12px}
+       .pf-dd-btn{width:100%;display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #d9d9d9;border-radius:12px;padding:16px 18px;font-size:17px;color:#111;cursor:pointer}
+       .pf-dd.open .pf-dd-btn{border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .pf-dd-right{display:flex;align-items:center;gap:14px;color:#444}
+       .pf-rec{background:#14532d;color:#fff;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;letter-spacing:.04em}
+       .pf-dd.open .pf-chev{transform:rotate(180deg)}
+       .pf-dd-menu{position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid #e0e0e0;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.16);z-index:5;overflow:hidden}
+       .pf-opt{padding:14px 18px;cursor:pointer}
+       .pf-opt:hover,.pf-opt.sel{background:#eef1f0}
+       .pf-opt-t{font-size:17px;font-weight:700;color:#111}
+       .pf-opt-d{font-size:14px;color:#777;margin-top:2px}
+       .pch-inp{display:flex;align-items:center;border:1px solid #d9d9d9;border-radius:12px;padding:0 16px;background:#fff;margin-bottom:6px}
+       .pch-inp:focus-within{border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .pch-pre{color:#9a9a9a;font-size:16px}
+       .pch-inp input{border:none;outline:none;flex:1;padding:15px 8px;font-size:16px;color:#111;background:transparent;min-width:0}
+       .pch-inp input::placeholder{color:#bdbdbd}
+       .pch-ta{width:100%;box-sizing:border-box;border:1px solid #d9d9d9;border-radius:12px;padding:14px 16px;font-size:16px;color:#111;min-height:110px;resize:vertical;font-family:inherit}
+       .pch-ta:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .pch-foot{display:flex;justify-content:space-between;align-items:center;margin-top:34px}
+       .pch-back{background:#fff;border:1px solid #cfcfcf;border-radius:12px;padding:14px 30px;font-size:15px;font-weight:700;letter-spacing:.06em;color:#14532d;cursor:pointer;text-transform:uppercase}
+       .pch-gen{background:#14532d;border:none;border-radius:12px;padding:15px 32px;font-size:15px;font-weight:700;letter-spacing:.06em;color:#fff;cursor:pointer;text-transform:uppercase}
      </style>
      <script>
        (function(){
@@ -290,6 +369,38 @@ export function onboardingView(_email: string): string {
          document.getElementById('lnkCancel').addEventListener('click',function(e){e.preventDefault();close();});
          bd.addEventListener('click',function(e){if(e.target===bd)close();});
          saveEl.addEventListener('click',function(){if(saveEl.disabled)return;localStorage.setItem(KEY,JSON.stringify(rows.filter(function(r){return (r.handle||'').trim();})));close();});
+       })();
+     </script>
+     <script>
+       (function(){
+         var bd=document.getElementById('pchBackdrop');
+         if(!bd)return;
+         function initDD(id,onChange){
+           var dd=document.getElementById(id);if(!dd)return;
+           var btn=dd.querySelector('.pf-dd-btn'),val=dd.querySelector('.pf-dd-val'),menu=dd.querySelector('.pf-dd-menu');
+           btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var open=dd.classList.toggle('open');menu.style.display=open?'block':'none';});
+           dd.querySelectorAll('.pf-opt').forEach(function(o){o.addEventListener('click',function(){
+             val.textContent=o.querySelector('.pf-opt-t').textContent;
+             dd.querySelectorAll('.pf-opt').forEach(function(x){x.classList.remove('sel');});o.classList.add('sel');
+             dd.classList.remove('open');menu.style.display='none';
+             if(onChange)onChange(o.getAttribute('data-v'));});});
+         }
+         document.addEventListener('click',function(){document.querySelectorAll('.pf-dd.open').forEach(function(dd){dd.classList.remove('open');dd.querySelector('.pf-dd-menu').style.display='none';});});
+         initDD('ddAbout',function(v){
+           document.getElementById('aboutPortfolio').style.display=(v==='write')?'none':'flex';
+           document.getElementById('aboutText').style.display=(v==='write')?'block':'none';
+         });
+         initDD('ddWork');
+         function open(){bd.style.display='flex';}
+         function close(){bd.style.display='none';}
+         var t=document.getElementById('obPitch');if(t)t.addEventListener('click',function(e){e.preventDefault();open();});
+         document.getElementById('pchClose').addEventListener('click',close);
+         document.getElementById('pchBack').addEventListener('click',close);
+         bd.addEventListener('click',function(e){if(e.target===bd)close();});
+         document.getElementById('pchGen').addEventListener('click',function(){
+           var data={about:document.querySelector('#ddAbout .pf-dd-val').textContent,aboutUrl:(document.getElementById('aboutUrl')||{}).value,aboutText:(document.getElementById('aboutText')||{}).value,work:document.querySelector('#ddWork .pf-dd-val').textContent,workUrl:(document.getElementById('workUrl')||{}).value};
+           localStorage.setItem('lepton_pitch_setup',JSON.stringify(data));close();
+         });
        })();
      </script>`,
   )
