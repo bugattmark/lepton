@@ -30,10 +30,12 @@ import * as dedupe from './dedupe.ts'
 import * as qual from './qualify.ts'
 import * as google from './google.ts'
 import * as onb from './onboarding.ts'
+import * as brands from './brands.ts'
 import * as pitchgen from './pitchgen.ts'
+import * as templates from './templates.ts'
 import { fetchPageText } from './ai.ts'
 import { createTenantWithGoogle } from './auth.ts'
-import { landingView, authView, dashboardView, onboardingView, startOnboardingView, sourceView, qualifyingView } from './views.ts'
+import { landingView, authView, dashboardView, onboardingView, startOnboardingView, sourceView, qualifyingView, brandsView } from './views.ts'
 
 const isProd = process.env.NODE_ENV === 'production'
 const PORT = Number(process.env.PORT ?? 8080)
@@ -74,10 +76,21 @@ app.use(
   }),
 )
 
+// --- TEMP: cross-origin CORS for the one-off onbento brand seed ingest (/api/seed/*).
+// Secret-gated (see route); exists only to let the in-browser harvester POST from app.onbento.com.
+const SEED_ORIGIN = process.env.SEED_ALLOW_ORIGIN ?? 'https://app.onbento.com'
+app.use('/api/seed/*', async (c, next) => {
+  c.header('Access-Control-Allow-Origin', SEED_ORIGIN)
+  c.header('Access-Control-Allow-Headers', 'content-type, x-seed-secret')
+  c.header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  if (c.req.method === 'OPTIONS') return c.body(null, 204)
+  await next()
+})
+
 // --- CSRF: same-origin check on mutating requests (works with SameSite=Lax cookies) ---
 app.use('*', async (c, next) => {
   const m = c.req.method
-  if (m === 'POST' || m === 'PUT' || m === 'DELETE') {
+  if ((m === 'POST' || m === 'PUT' || m === 'DELETE') && !c.req.path.startsWith('/api/seed/')) {
     const origin = c.req.header('origin')
     if (origin) {
       try {
@@ -186,6 +199,21 @@ app.get('/dashboard', pageAuth, (c) => c.html(onboardingView(emailOf(c.get('tena
 app.get('/outbound', pageAuth, (c) => c.html(dashboardView(emailOf(c.get('tenantId')))))
 app.get('/source', pageAuth, (c) => c.html(sourceView(emailOf(c.get('tenantId')))))
 app.get('/qualifying', pageAuth, (c) => c.html(qualifyingView(emailOf(c.get('tenantId')))))
+app.get('/dashboard/brands', pageAuth, (c) => c.html(brandsView(emailOf(c.get('tenantId')))))
+app.get('/brands', pageAuth, (c) => c.redirect('/dashboard/brands')) // back-compat
+app.get('/api/brands', apiAuth, (c) => {
+  const q = c.req.query()
+  const data = brands.listBrands(c.get('tenantId'), {
+    search: q.search,
+    category: q.category,
+    limit: q.limit ? Number(q.limit) : undefined,
+    offset: q.offset ? Number(q.offset) : undefined,
+  })
+  return c.json({ ok: true, ...data })
+})
+app.get('/api/brands/categories', apiAuth, (c) =>
+  c.json({ ok: true, categories: brands.categoryFacets(c.get('tenantId')) }),
+)
 app.get('/app', pageAuth, (c) => c.redirect('/outbound')) // back-compat
 
 // --- onboarding (2-step intake wizard; stores per-tenant, then migrates to /dashboard) ---
@@ -240,8 +268,9 @@ app.post('/api/onboarding/followup-template', apiAuth, async (c) => {
   return c.json({ ok: true })
 })
 
-// "Bento writes it" — generate a reusable pitch template via GPT-5.4-mini + the pitch guide.
-app.post('/api/onboarding/generate-pitch', apiAuth, async (c) => {
+// "Bento writes it" — generate a reusable pitch/follow-up template via GPT-5.4-mini + the pitch
+// guide. Both kinds share this; only `kind` (and the prior pitch passed to follow-ups) differs.
+async function runGenerate(c: import('hono').Context, kind: pitchgen.PitchKind) {
   if (!pitchgen.pitchGenAvailable()) return c.json({ ok: false, error: 'AI is not configured (OPENAI_API_KEY)' }, 400)
   const b = (await c.req.json().catch(() => ({}))) as {
     about?: string
@@ -265,6 +294,7 @@ app.post('/api/onboarding/generate-pitch', apiAuth, async (c) => {
   ])
 
   const result = await pitchgen.generate({
+    kind,
     name: profile.name,
     roles: profile.roles,
     pitchTo: profile.pitchTo,
@@ -275,9 +305,62 @@ app.post('/api/onboarding/generate-pitch', apiAuth, async (c) => {
     workKind: str(b.work),
     workUrl,
     workText,
+    priorPitchBody: kind === 'followup' ? snap.pitchTemplate : '',
   })
-  if (!result) return c.json({ ok: false, error: 'could not generate a pitch — try again' }, 502)
+  const noun = kind === 'followup' ? 'follow-up' : 'pitch'
+  if (!result) return c.json({ ok: false, error: `could not generate a ${noun} — try again` }, 502)
   return c.json({ ok: true, ...result })
+}
+
+app.post('/api/onboarding/generate-pitch', apiAuth, (c) => runGenerate(c, 'outreach'))
+app.post('/api/onboarding/generate-followup', apiAuth, (c) => runGenerate(c, 'followup'))
+
+// --- saved templates (the "Modify your template" editor: persist + save-as-new) ---
+// Saving also ticks the matching onboarding step (pitch -> outreach, follow-up -> followup) so the
+// checklist reflects that at least one template of that kind now exists.
+function markTemplateStep(tenantId: string, type: string, body: string) {
+  if (type === 'followup') onb.setFollowupTemplate(tenantId, body)
+  else onb.setPitchTemplate(tenantId, body)
+}
+
+app.get('/api/templates', apiAuth, (c) => {
+  const type = c.req.query('type')
+  return c.json({ ok: true, templates: templates.listTemplates(c.get('tenantId'), type) })
+})
+
+app.post('/api/templates', apiAuth, async (c) => {
+  try {
+    const b = (await c.req.json()) as templates.TemplateInput
+    const row = templates.createTemplate(c.get('tenantId'), b)
+    markTemplateStep(c.get('tenantId'), row.type, row.body)
+    return c.json({ ok: true, template: row })
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 400)
+  }
+})
+
+app.put('/api/templates/:id', apiAuth, async (c) => {
+  try {
+    const id = Number(c.req.param('id'))
+    if (!Number.isInteger(id)) return c.json({ ok: false, error: 'invalid template id' }, 400)
+    const b = (await c.req.json()) as templates.TemplateInput
+    const row = templates.updateTemplate(c.get('tenantId'), id, b)
+    markTemplateStep(c.get('tenantId'), row.type, row.body)
+    return c.json({ ok: true, template: row })
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 400)
+  }
+})
+
+app.delete('/api/templates/:id', apiAuth, (c) => {
+  try {
+    const id = Number(c.req.param('id'))
+    if (!Number.isInteger(id)) return c.json({ ok: false, error: 'invalid template id' }, 400)
+    templates.deleteTemplate(c.get('tenantId'), id)
+    return c.json({ ok: true })
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 400)
+  }
 })
 
 // --- "Continue with Google" + Gmail read/send ---
@@ -980,5 +1063,25 @@ app.post('/api/campaigns/:id/pause', apiAuth, (c) => {
 })
 
 app.get('/healthz', (c) => c.text('ok'))
+
+// --- TEMP one-off seed ingest: receives normalized brands from the in-browser onbento harvester.
+// Secret-gated via x-seed-secret (set SEED_SECRET in .env). Not part of the product surface —
+// remove once the brands table is seeded. Tenant is passed explicitly (no session cross-origin).
+app.post('/api/seed/bento', async (c) => {
+  const secret = process.env.SEED_SECRET
+  if (!secret || c.req.header('x-seed-secret') !== secret) return c.json({ ok: false, error: 'forbidden' }, 403)
+  let body: { tenantId?: string; brands?: brands.BrandInput[] }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ ok: false, error: 'bad json' }, 400)
+  }
+  const tenantId = body.tenantId?.trim()
+  if (!tenantId || !(db.prepare('SELECT 1 FROM tenants WHERE id = ?').get(tenantId)))
+    return c.json({ ok: false, error: 'unknown tenant' }, 400)
+  const rows = Array.isArray(body.brands) ? body.brands : []
+  const res = brands.upsertBrands(tenantId, rows)
+  return c.json({ ok: true, ...res, total: brands.brandCount(tenantId) })
+})
 
 serve({ fetch: app.fetch, port: PORT }, (info) => console.log(`WA Connect listening on :${info.port}`))

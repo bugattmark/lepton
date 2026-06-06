@@ -4,9 +4,9 @@ import { db } from './db.ts'
 import type { OnboardingRow } from './db.ts'
 
 // The onboarding-step checklist, in order. A step unlocks only when all before it are done.
-export const STEP_KEYS = ['link', 'pitch', 'followup', 'first_send', 'ten_pitches'] as const
+// Final step is 'followup' — it ticks once at least one follow-up template exists.
+export const STEP_KEYS = ['link', 'pitch', 'followup'] as const
 export type StepKey = (typeof STEP_KEYS)[number]
-export const PITCH_GOAL = 10
 
 export interface IntakeProfile {
   name: string
@@ -96,20 +96,6 @@ export function setFollowupTemplate(tenantId: string, body: string): void {
   if (body.trim()) markStep(tenantId, 'followup')
 }
 
-export function markFirstSend(tenantId: string): void {
-  ensureRow(tenantId)
-  markStep(tenantId, 'first_send')
-}
-
-// Record progress toward the 10-pitch goal; completes the step (and onboarding) at the goal.
-export function addPitchesSent(tenantId: string, n = 1): number {
-  ensureRow(tenantId)
-  db.prepare('UPDATE onboarding SET pitches_sent=pitches_sent+?, updated_at=? WHERE tenant_id=?').run(n, Date.now(), tenantId)
-  const sent = getOnboarding(tenantId)?.pitches_sent ?? 0
-  if (sent >= PITCH_GOAL) markStep(tenantId, 'ten_pitches')
-  return sent
-}
-
 function maybeComplete(tenantId: string): void {
   const done = new Set(stepsDone(tenantId))
   if (STEP_KEYS.every((k) => done.has(k))) {
@@ -142,8 +128,6 @@ export function snapshot(tenantId: string) {
     pitchTemplate: row?.pitch_template ?? '',
     followupTemplate: row?.followup_template ?? '',
     stepsDone: done,
-    pitchesSent: row?.pitches_sent ?? 0,
-    pitchGoal: PITCH_GOAL,
   }
 }
 
