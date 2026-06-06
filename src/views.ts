@@ -141,6 +141,450 @@ export function authView(mode: 'login' | 'signup', error?: string): string {
   )
 }
 
+// Onboarding dashboard (/dashboard). Layout + copy mirror the reference exactly; rendered B&W.
+export function onboardingView(_email: string): string {
+  const linkIcon =
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+  const lockIcon =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+  const refreshIcon =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
+  const tickIcon =
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+  const pencilIcon =
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'
+  const fileIcon =
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
+  const sendIcon =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
+  const icoSet = (step: string) =>
+    `<span class="ico-step">${step}</span><span class="ico-done">${tickIcon}</span><span class="ico-lock">${lockIcon}</span>`
+
+  const locked = (title: string, note: string, desc: string, extra = ''): string =>
+    `<div class="ob-step ob-locked">
+       <div class="ob-ico ob-ico-lock">${lockIcon}</div>
+       <div class="ob-body">
+         <div class="ob-title">${title} <span class="ob-note">${note}</span></div>
+         <p class="ob-desc">${desc}</p>
+         ${extra}
+       </div>
+     </div>`
+
+  const progress =
+    `<div class="ob-progress">
+       <div class="ob-prow">
+         <span class="ob-ptitle">Progress ${refreshIcon}</span>
+         <span class="ob-pcount">0 / 10 emails sent</span>
+       </div>
+       <div class="ob-pbar"><div class="ob-pfill" style="width:0%"></div></div>
+     </div>`
+
+  return page(
+    'Dashboard',
+    `<div class="ob-page">
+       <div class="ob-panel">
+         <div class="ob-label">ONBOARDING STEPS</div>
+
+         <div class="ob-step" id="ob-s1" data-badge="&lt;1 min">
+           <div class="ob-ico">${icoSet(linkIcon)}</div>
+           <div class="ob-body">
+             <div class="ob-title">Add a Link <span class="ob-tag"></span></div>
+             <p class="ob-desc">Social link, website, portfolio, company page — anywhere brands can see your work.</p>
+             <a class="ob-btn" href="#" id="obAddLink">ADD A LINK <span class="ob-arrow">→</span></a>
+           </div>
+         </div>
+
+         <div class="ob-step" id="ob-s2" data-badge="&lt;1 min" data-note="· Finish 1 step above first">
+           <div class="ob-ico">${icoSet(pencilIcon)}</div>
+           <div class="ob-body">
+             <div class="ob-title">Create Your Pitch Template <span class="ob-tag"></span></div>
+             <p class="ob-desc">Write the email Bento sends to brands. Strong templates roughly 3x your reply rate.</p>
+             <a class="ob-btn" href="#" id="obPitch">CREATE TEMPLATE <span class="ob-arrow">→</span></a>
+           </div>
+         </div>
+
+         <div class="ob-step" id="ob-s3" data-note="· Finish 2 steps above first">
+           <div class="ob-ico">${icoSet(fileIcon)}</div>
+           <div class="ob-body">
+             <div class="ob-title">Create Follow-Up Template <span class="ob-tag"></span></div>
+             <p class="ob-desc">Most replies come from follow-ups — set this up once and Bento sends them automatically.</p>
+           </div>
+         </div>
+
+         <div class="ob-step" id="ob-s4" data-note="· Finish 3 steps above first">
+           <div class="ob-ico">${icoSet(sendIcon)}</div>
+           <div class="ob-body">
+             <div class="ob-title">Send a first email with a follow up <span class="ob-tag"></span></div>
+             <p class="ob-desc">Send a pitch with a follow-up scheduled right after — Bento sends it automatically if they don't reply.</p>
+           </div>
+         </div>
+
+         <div class="ob-step" id="ob-s5" data-note="· Finish 4 steps above first">
+           <div class="ob-ico">${icoSet(sendIcon)}</div>
+           <div class="ob-body">
+             <div class="ob-title">Send 10 Brand Pitches <span class="ob-tag"></span></div>
+             <p class="ob-desc">Browse brands matched to your niche and send your first 10 pitches to finish onboarding.</p>
+             ${progress}
+           </div>
+         </div>
+       </div>
+     </div>
+
+     <!-- Add Portfolio Link modal -->
+     <div id="lnkBackdrop" class="lnk-backdrop" style="display:none">
+       <div class="lnk-modal" role="dialog" aria-modal="true">
+         <div class="lnk-h">Add Portfolio Link</div>
+         <div class="lnk-card">
+           <div class="lnk-sub">Please share your most active social links below</div>
+           <div id="lnkRows"></div>
+           <a href="#" id="lnkAdd" class="lnk-add">ADD LINK +</a>
+         </div>
+         <div class="lnk-foot">
+           <a href="#" id="lnkCancel" class="lnk-cancel">CANCEL</a>
+           <button id="lnkSave" class="lnk-save" disabled>SAVE</button>
+         </div>
+       </div>
+     </div>
+     <!-- How do you want to write your pitch? modal -->
+     <div id="pchBackdrop" class="pch-backdrop" style="display:none">
+       <div class="pch-modal" role="dialog" aria-modal="true">
+         <button class="pch-x" id="pchClose">&times;</button>
+         <div class="pch-h">How do you want to write your pitch?</div>
+
+         <div class="pch-cards">
+           <div class="pch-card sel" data-v="ai">
+             <span class="pch-card-mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+             <span class="pch-card-radio"></span>
+             <div class="pch-card-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4"/><path d="m13 7 6 6L7 21l-2-2L13 7z"/><path d="m16 4 1 1"/></svg></div>
+             <div class="pch-card-t">Bento writes it</div>
+             <div class="pch-card-d">AI draft, fully editable</div>
+           </div>
+           <div class="pch-card" data-v="own">
+             <span class="pch-card-mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+             <span class="pch-card-radio"></span>
+             <div class="pch-card-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+             <div class="pch-card-t">Write my own</div>
+             <div class="pch-card-d">Start from scratch</div>
+           </div>
+         </div>
+
+         <div class="pch-lbl">Tell us about yourself <span class="req">*</span></div>
+         <div class="pf-dd" id="ddAbout">
+           <button type="button" class="pf-dd-btn">
+             <span class="pf-dd-val">Portfolio</span>
+             <span class="pf-dd-right"><span class="pf-rec">RECOMMENDED</span><svg class="pf-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+           </button>
+           <div class="pf-dd-menu" style="display:none">
+             <div class="pf-opt sel" data-v="portfolio"><div class="pf-opt-t">Portfolio</div><div class="pf-opt-d">Full work example</div></div>
+             <div class="pf-opt" data-v="write"><div class="pf-opt-t">Write about yourself</div><div class="pf-opt-d">A short paragraph in your own words</div></div>
+           </div>
+         </div>
+         <!-- portfolio: later we grab the website html/json/text to use -->
+         <div id="aboutPortfolio" class="pch-inp"><span class="pch-pre">https://</span><input type="text" id="aboutUrl" placeholder="website.com"></div>
+         <textarea id="aboutText" class="pch-ta" placeholder="A short paragraph about yourself, in your own words…" style="display:none"></textarea>
+
+         <div class="pch-lbl" style="margin-top:24px">Show your best work</div>
+         <div class="pch-sub">We'll highlight this in your template</div>
+         <div class="pf-dd" id="ddWork">
+           <button type="button" class="pf-dd-btn">
+             <span class="pf-dd-val">Top performing post</span>
+             <span class="pf-dd-right"><svg class="pf-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+           </button>
+           <div class="pf-dd-menu" style="display:none">
+             <div class="pf-opt sel" data-v="top"><div class="pf-opt-t">Top performing post</div><div class="pf-opt-d">Your best performing content</div></div>
+             <div class="pf-opt" data-v="collab"><div class="pf-opt-t">Brand collab post</div><div class="pf-opt-d">Social proof from a past brand</div></div>
+             <div class="pf-opt" data-v="page"><div class="pf-opt-t">Social media page</div><div class="pf-opt-d">Let brands browse your feed</div></div>
+             <div class="pf-opt" data-v="partnership"><div class="pf-opt-t">Describe your most impressive partnership</div><div class="pf-opt-d">Highlight a notable past brand collaboration</div></div>
+           </div>
+         </div>
+         <div class="pch-inp" id="workLink"><span class="pch-pre">https://</span><input type="text" id="workUrl" placeholder="www.instagram.com/p/your-post-id"></div>
+
+         <div class="pch-foot">
+           <button class="pch-back" id="pchBack">BACK</button>
+           <button class="pch-gen" id="pchGen">GENERATE PITCH</button>
+         </div>
+       </div>
+     </div>
+     <!-- Modify your template modal -->
+     <div id="tplBackdrop" class="tpl-backdrop" style="display:none">
+       <div class="tpl-modal" role="dialog" aria-modal="true">
+         <button class="tpl-x" id="tplClose">&times;</button>
+         <div class="tpl-h">Modify your template</div>
+
+         <div class="tpl-sel">
+           <select class="tpl-folder"><option>Folder</option></select>
+           <svg class="tpl-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+         </div>
+
+         <label class="tpl-lbl">Template Name <span class="req">*</span></label>
+         <input class="tpl-inp" id="tplName" placeholder="Template Name">
+
+         <label class="tpl-lbl">Subject <span class="req">*</span></label>
+         <div class="tpl-field">
+           <div class="tpl-tags">Personalization Tags: <button class="tpl-tag" data-tag="{First Name}" data-target="tplSubject">{First Name}</button><button class="tpl-tag" data-tag="{Brand Name}" data-target="tplSubject">{Brand Name}</button></div>
+           <input class="tpl-subj" id="tplSubject" placeholder="Email Subject">
+         </div>
+
+         <div class="tpl-field" style="margin-top:16px">
+           <div class="tpl-toolbar">
+             <button type="button" class="tpl-tb" title="Text"><b>T</b></button>
+             <button type="button" class="tpl-tb" title="Link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+           </div>
+           <div class="tpl-tags">Personalization Tags: <button class="tpl-tag" data-tag="{First Name}" data-target="tplBody">{First Name}</button><button class="tpl-tag" data-tag="{Brand Name}" data-target="tplBody">{Brand Name}</button></div>
+           <textarea class="tpl-area" id="tplBody" placeholder="Email Body"></textarea>
+         </div>
+
+         <div class="tpl-foot">
+           <button class="tpl-back" id="tplBack"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="13 8 9 12 13 16"/><line x1="9" y1="12" x2="16" y2="12"/></svg> BACK</button>
+           <button class="tpl-save" id="tplSave">SAVE TEMPLATE</button>
+         </div>
+       </div>
+     </div>
+     <style>
+       .ob-page{max-width:860px;margin:0 auto;padding:40px 24px}
+       .ob-panel{border:1px solid var(--line);border-radius:18px;padding:28px}
+       .ob-label{font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--muted);margin-bottom:18px}
+       .ob-step{display:flex;gap:18px;border-radius:14px;padding:22px 24px;margin-bottom:14px}
+       .ob-step:last-child{margin-bottom:0}
+       .ob-active{background:#fff;border:1px solid #000;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+       .ob-locked{background:#f6f6f6;border:1px solid #f6f6f6}
+       .ob-ico{flex:0 0 auto;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+       .ob-ico-link{background:#efefef;color:#000}
+       .ob-ico-lock{background:#ececec;color:#aaa}
+       .ob-body{flex:1;min-width:0}
+       .ob-title{font-size:20px;font-weight:700;letter-spacing:-.01em;color:#000;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+       .ob-locked .ob-title{color:#9a9a9a}
+       .ob-note{font-size:15px;font-weight:400;color:#b3b3b3}
+       .ob-badge{display:inline-block;background:#000;color:#fff;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600}
+       .ob-desc{margin-top:8px;font-size:16px;color:#444}
+       .ob-locked .ob-desc{color:#b3b3b3}
+       .ob-btn{display:inline-flex;align-items:center;gap:10px;margin-top:16px;background:#fff;color:#000;border:1px solid #000;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer}
+       .ob-btn:hover{background:#000;color:#fff}
+       .ob-arrow{font-weight:400}
+       .ob-progress{margin-top:18px}
+       .ob-prow{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+       .ob-ptitle{display:inline-flex;align-items:center;gap:8px;font-size:16px;color:#7a7a7a}
+       .ob-pcount{font-size:17px;font-weight:700;color:#000}
+       .ob-pbar{height:8px;border-radius:999px;background:#e5e5e5;overflow:hidden}
+       .ob-pfill{height:100%;background:#000;border-radius:999px}
+
+       /* Add Portfolio Link modal */
+       .lnk-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:20px}
+       .lnk-modal{background:#fff;border-radius:16px;width:100%;max-width:660px;padding:28px 30px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+       .lnk-h{font-size:24px;font-weight:700;color:#111;margin-bottom:20px}
+       .lnk-card{border:1px solid #e3e3e3;border-radius:14px;padding:20px}
+       .lnk-sub{font-size:16px;color:#222;margin-bottom:14px}
+       .lnk-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+       .lnk-row:last-child{margin-bottom:0}
+       .lnk-sel{position:relative;flex:0 0 185px}
+       .lnk-sel select{width:100%;appearance:none;-webkit-appearance:none;background:#fff;border:1px solid #d9d9d9;border-radius:12px;padding:14px 36px 14px 16px;font-size:16px;color:#111;cursor:pointer;font-weight:500}
+       .lnk-sel select:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .lnk-chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#666}
+       .lnk-inp{flex:1;display:flex;align-items:center;border:1px solid #d9d9d9;border-radius:12px;padding:0 14px;background:#fff;min-width:0}
+       .lnk-inp:focus-within{border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .lnk-pre{color:#444;font-size:16px;white-space:nowrap}
+       .lnk-inp input{border:none;outline:none;flex:1;padding:14px 6px;font-size:16px;color:#111;min-width:0;background:transparent}
+       .lnk-inp input::placeholder{color:#9a9a9a}
+       .lnk-del{flex:0 0 auto;background:none;border:none;cursor:pointer;color:#9aa0c2;padding:6px;line-height:0}
+       .lnk-del:hover{color:#e0556b}
+       .lnk-add{display:inline-block;color:#14532d;font-weight:700;font-size:16px;letter-spacing:.02em;text-decoration:none;cursor:pointer}
+       .lnk-foot{display:flex;justify-content:flex-end;align-items:center;gap:24px;margin-top:22px}
+       .lnk-cancel{color:#14532d;font-weight:700;font-size:16px;letter-spacing:.04em;text-decoration:none;cursor:pointer;text-transform:uppercase}
+       .lnk-save{background:#e6e6e6;color:#9a9a9a;border:none;border-radius:10px;padding:12px 26px;font-size:16px;font-weight:700;letter-spacing:.04em;cursor:not-allowed;text-transform:uppercase}
+       .lnk-save.on{background:#14532d;color:#fff;cursor:pointer}
+
+       /* How do you want to write your pitch? modal */
+       .pch-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;z-index:200;padding:40px 20px;overflow:auto}
+       .pch-modal{position:relative;background:#fff;border-radius:16px;width:100%;max-width:920px;padding:40px 46px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+       .pch-x{position:absolute;top:18px;right:24px;background:none;border:none;font-size:26px;line-height:1;color:#b3b3b3;cursor:pointer}
+       .pch-h{font-size:30px;font-weight:700;color:#111;margin-bottom:28px;letter-spacing:-.01em}
+       .pch-cards{display:flex;gap:16px;margin-bottom:26px}
+       .pch-card{position:relative;flex:1;border:1px solid #d9d9d9;border-radius:14px;padding:16px 18px;cursor:pointer;background:#fff}
+       .pch-card.sel{background:linear-gradient(135deg,#0c3522,#14532d);border-color:#14532d}
+       .pch-card-ico{width:34px;height:34px;border-radius:50%;background:#f1f1f1;display:flex;align-items:center;justify-content:center;color:#14532d;margin-bottom:10px}
+       .pch-card.sel .pch-card-ico{background:#fff;color:#14532d}
+       .pch-card-t{font-size:20px;font-weight:700;color:#111;letter-spacing:-.01em}
+       .pch-card.sel .pch-card-t{color:#fff}
+       .pch-card-d{font-size:14px;color:#777;margin-top:2px}
+       .pch-card.sel .pch-card-d{color:#cfe3d8}
+       .pch-card-mark{position:absolute;top:14px;right:14px;width:22px;height:22px;border-radius:50%;background:#fff;color:#14532d;display:none;align-items:center;justify-content:center}
+       .pch-card-radio{position:absolute;top:14px;right:14px;width:21px;height:21px;border-radius:50%;border:2px solid #d3d3d3;box-sizing:border-box}
+       .pch-card.sel .pch-card-mark{display:flex}
+       .pch-card.sel .pch-card-radio{display:none}
+       .pch-lbl{font-size:18px;font-weight:700;color:#111;margin-bottom:10px}
+       .pch-sub{font-size:15px;color:#555;margin:-4px 0 10px}
+       .pf-dd{position:relative;margin-bottom:12px}
+       .pf-dd-btn{width:100%;display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #d9d9d9;border-radius:12px;padding:16px 18px;font-size:17px;color:#111;cursor:pointer}
+       .pf-dd.open .pf-dd-btn{border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .pf-dd-right{display:flex;align-items:center;gap:14px;color:#444}
+       .pf-rec{background:#14532d;color:#fff;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;letter-spacing:.04em}
+       .pf-dd.open .pf-chev{transform:rotate(180deg)}
+       .pf-dd-menu{position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid #e0e0e0;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.16);z-index:5;overflow:hidden}
+       .pf-opt{padding:14px 18px;cursor:pointer}
+       .pf-opt:hover,.pf-opt.sel{background:#eef1f0}
+       .pf-opt-t{font-size:17px;font-weight:700;color:#111}
+       .pf-opt-d{font-size:14px;color:#777;margin-top:2px}
+       .pch-inp{display:flex;align-items:center;border:1px solid #d9d9d9;border-radius:12px;padding:0 16px;background:#fff;margin-bottom:6px}
+       .pch-inp:focus-within{border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .pch-pre{color:#9a9a9a;font-size:16px}
+       .pch-inp input{border:none;outline:none;flex:1;padding:15px 8px;font-size:16px;color:#111;background:transparent;min-width:0}
+       .pch-inp input::placeholder{color:#bdbdbd}
+       .pch-ta{width:100%;box-sizing:border-box;border:1px solid #d9d9d9;border-radius:12px;padding:14px 16px;font-size:16px;color:#111;min-height:110px;resize:vertical;font-family:inherit}
+       .pch-ta:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .pch-foot{display:flex;justify-content:space-between;align-items:center;margin-top:34px}
+       .pch-back{background:#fff;border:1px solid #cfcfcf;border-radius:12px;padding:14px 30px;font-size:15px;font-weight:700;letter-spacing:.06em;color:#14532d;cursor:pointer;text-transform:uppercase}
+       .pch-gen{background:#14532d;border:none;border-radius:12px;padding:15px 32px;font-size:15px;font-weight:700;letter-spacing:.06em;color:#fff;cursor:pointer;text-transform:uppercase}
+
+       /* Modify your template modal */
+       .tpl-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;z-index:210;padding:40px 20px;overflow:auto}
+       .tpl-modal{position:relative;background:#fff;border-radius:16px;width:100%;max-width:720px;padding:34px 40px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+       .tpl-x{position:absolute;top:18px;right:24px;background:none;border:none;font-size:26px;line-height:1;color:#b3b3b3;cursor:pointer}
+       .tpl-h{font-size:30px;font-weight:700;color:#111;margin-bottom:22px;letter-spacing:-.01em}
+       .tpl-sel{position:relative;display:inline-block;margin-bottom:6px}
+       .tpl-folder{appearance:none;-webkit-appearance:none;background:#fff;border:1px solid #d9d9d9;border-radius:10px;padding:12px 42px 12px 16px;font-size:16px;color:#111;cursor:pointer;min-width:240px}
+       .tpl-folder:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .tpl-chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#666}
+       .tpl-lbl{display:block;font-size:17px;font-weight:700;color:#111;margin:18px 0 8px}
+       .tpl-lbl .req{color:#111}
+       .tpl-inp{width:100%;box-sizing:border-box;border:1px solid #d9d9d9;border-radius:12px;padding:15px 16px;font-size:16px;color:#111}
+       .tpl-inp:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .tpl-field{border:1px solid #d9d9d9;border-radius:12px;overflow:hidden}
+       .tpl-toolbar{display:flex;align-items:center;gap:4px;background:#fff;padding:10px 12px;border-bottom:1px solid #eee}
+       .tpl-tb{background:none;border:none;cursor:pointer;color:#222;padding:6px 9px;border-radius:6px;font-size:16px;display:flex;align-items:center}
+       .tpl-tb:hover{background:#f0f0f0}
+       .tpl-tags{background:#f3f3f3;padding:11px 16px;font-size:15px;color:#333;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+       .tpl-tag{background:#fff;border:1px solid #c5bdf0;color:#6b5fd0;border-radius:999px;padding:4px 12px;font-size:14px;cursor:pointer}
+       .tpl-subj,.tpl-area{width:100%;box-sizing:border-box;border:none;outline:none;padding:15px 16px;font-size:16px;color:#111;font-family:inherit;background:transparent}
+       .tpl-area{min-height:150px;resize:vertical;display:block}
+       .tpl-foot{display:flex;justify-content:center;gap:18px;margin-top:28px}
+       .tpl-back{background:#f1f1f1;border:none;border-radius:12px;padding:14px 26px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#14532d;cursor:pointer;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px}
+       .tpl-save{background:#14532d;border:none;border-radius:12px;padding:14px 30px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#fff;cursor:pointer;text-transform:uppercase}
+
+       /* onboarding step states (tick-off + sequential lock) */
+       .ob-done{background:#fff;border:1px solid #cfe0d6}
+       .ob-ico>span{display:none;align-items:center;justify-content:center}
+       .ob-active .ob-ico{background:#efefef;color:#000}
+       .ob-active .ico-step{display:flex}
+       .ob-done .ob-ico{background:#14532d;color:#fff}
+       .ob-done .ico-done{display:flex}
+       .ob-locked .ob-ico{background:#ececec;color:#aaa}
+       .ob-locked .ico-lock{display:flex}
+       .ob-done .ob-title{color:#000}
+     </style>
+     <script>
+       (function(){
+         var PLAT={Instagram:{pre:'https://instagram.com/',ph:'handle'},TikTok:{pre:'https://tiktok.com/@',ph:'handle'},YouTube:{pre:'https://youtube.com/@',ph:'handle'},Twitch:{pre:'https://www.twitch.tv/',ph:'handle'},Portfolio:{pre:'https://',ph:'website.com'}};
+         var ORDER=['Instagram','TikTok','YouTube','Twitch','Portfolio'];
+         var KEY='lepton_portfolio_links';
+         var rows=[];
+         var bd=document.getElementById('lnkBackdrop'),rowsEl=document.getElementById('lnkRows'),addEl=document.getElementById('lnkAdd'),saveEl=document.getElementById('lnkSave');
+         function trash(){return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';}
+         function chev(){return '<svg class="lnk-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';}
+         function opts(sel){return ORDER.map(function(p){return '<option value="'+p+'"'+(p===sel?' selected':'')+'>'+p+'</option>';}).join('');}
+         function esc(s){return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+         function render(){
+           rowsEl.innerHTML=rows.map(function(r,i){var p=PLAT[r.platform]||PLAT.Portfolio;
+             return '<div class="lnk-row" data-i="'+i+'"><div class="lnk-sel"><select class="lnk-plat">'+opts(r.platform)+'</select>'+chev()+'</div>'
+               +'<div class="lnk-inp"><span class="lnk-pre">'+p.pre+'</span><input class="lnk-handle" type="text" placeholder="'+p.ph+'" value="'+esc(r.handle)+'"></div>'
+               +'<button class="lnk-del" title="Remove">'+trash()+'</button></div>';}).join('');
+           addEl.style.display=rows.length>=ORDER.length?'none':'inline-block';
+           validate();
+         }
+         function validate(){var ok=rows.some(function(r){return (r.handle||'').trim().length>0;});saveEl.disabled=!ok;saveEl.className='lnk-save'+(ok?' on':'');}
+         function nextPlatform(){for(var i=0;i<ORDER.length;i++){var p=ORDER[i];if(!rows.some(function(r){return r.platform===p;}))return p;}return ORDER[0];}
+         rowsEl.addEventListener('input',function(e){if(e.target.classList.contains('lnk-handle')){rows[+e.target.closest('.lnk-row').dataset.i].handle=e.target.value;validate();}});
+         rowsEl.addEventListener('change',function(e){if(e.target.classList.contains('lnk-plat')){rows[+e.target.closest('.lnk-row').dataset.i].platform=e.target.value;render();}});
+         rowsEl.addEventListener('click',function(e){var b=e.target.closest('.lnk-del');if(b){rows.splice(+b.closest('.lnk-row').dataset.i,1);render();}});
+         addEl.addEventListener('click',function(e){e.preventDefault();rows.push({platform:nextPlatform(),handle:''});render();});
+         function open(){try{rows=JSON.parse(localStorage.getItem(KEY))||[];}catch(_){rows=[];}if(!Array.isArray(rows))rows=[];render();bd.style.display='flex';}
+         function close(){bd.style.display='none';}
+         var trig=document.getElementById('obAddLink');if(trig)trig.addEventListener('click',function(e){e.preventDefault();open();});
+         document.getElementById('lnkCancel').addEventListener('click',function(e){e.preventDefault();close();});
+         bd.addEventListener('click',function(e){if(e.target===bd)close();});
+         saveEl.addEventListener('click',function(){if(saveEl.disabled)return;localStorage.setItem(KEY,JSON.stringify(rows.filter(function(r){return (r.handle||'').trim();})));close();if(window.__refreshSteps)window.__refreshSteps();});
+       })();
+     </script>
+     <script>
+       (function(){
+         var bd=document.getElementById('pchBackdrop');
+         if(!bd)return;
+         function initDD(id,onChange){
+           var dd=document.getElementById(id);if(!dd)return;
+           var btn=dd.querySelector('.pf-dd-btn'),val=dd.querySelector('.pf-dd-val'),menu=dd.querySelector('.pf-dd-menu');
+           btn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var open=dd.classList.toggle('open');menu.style.display=open?'block':'none';});
+           dd.querySelectorAll('.pf-opt').forEach(function(o){o.addEventListener('click',function(){
+             val.textContent=o.querySelector('.pf-opt-t').textContent;
+             dd.querySelectorAll('.pf-opt').forEach(function(x){x.classList.remove('sel');});o.classList.add('sel');
+             dd.classList.remove('open');menu.style.display='none';
+             if(onChange)onChange(o.getAttribute('data-v'));});});
+         }
+         document.addEventListener('click',function(){document.querySelectorAll('.pf-dd.open').forEach(function(dd){dd.classList.remove('open');dd.querySelector('.pf-dd-menu').style.display='none';});});
+         initDD('ddAbout',function(v){
+           document.getElementById('aboutPortfolio').style.display=(v==='write')?'none':'flex';
+           document.getElementById('aboutText').style.display=(v==='write')?'block':'none';
+         });
+         initDD('ddWork');
+         var cards=bd.querySelectorAll('.pch-card');
+         cards.forEach(function(c){c.addEventListener('click',function(){cards.forEach(function(x){x.classList.remove('sel');});c.classList.add('sel');});});
+         function chosenMode(){var s=bd.querySelector('.pch-card.sel');return s?s.getAttribute('data-v'):'ai';}
+         function open(){bd.style.display='flex';}
+         function close(){bd.style.display='none';}
+         var t=document.getElementById('obPitch');if(t)t.addEventListener('click',function(e){e.preventDefault();open();});
+         document.getElementById('pchClose').addEventListener('click',close);
+         document.getElementById('pchBack').addEventListener('click',close);
+         bd.addEventListener('click',function(e){if(e.target===bd)close();});
+         document.getElementById('pchGen').addEventListener('click',function(){
+           var data={mode:chosenMode(),about:document.querySelector('#ddAbout .pf-dd-val').textContent,aboutUrl:(document.getElementById('aboutUrl')||{}).value,aboutText:(document.getElementById('aboutText')||{}).value,work:document.querySelector('#ddWork .pf-dd-val').textContent,workUrl:(document.getElementById('workUrl')||{}).value};
+           localStorage.setItem('lepton_pitch_setup',JSON.stringify(data));close();
+           if(window.__openTemplate)window.__openTemplate();
+         });
+       })();
+     </script>
+     <script>
+       (function(){
+         var bd=document.getElementById('tplBackdrop');if(!bd)return;
+         window.__openTemplate=function(){bd.style.display='flex';};
+         function close(){bd.style.display='none';}
+         var pch=function(){return document.getElementById('pchBackdrop');};
+         document.getElementById('tplClose').addEventListener('click',function(){close();if(pch())pch().style.display='none';});
+         document.getElementById('tplBack').addEventListener('click',function(){close();if(pch())pch().style.display='flex';});
+         bd.addEventListener('click',function(e){if(e.target===bd)close();});
+         bd.querySelectorAll('.tpl-tag').forEach(function(t){t.addEventListener('click',function(){
+           var tgt=document.getElementById(t.getAttribute('data-target'));if(!tgt)return;
+           var ins=t.getAttribute('data-tag'),s=tgt.selectionStart,e=tgt.selectionEnd;
+           if(typeof s==='number'){tgt.value=tgt.value.slice(0,s)+ins+tgt.value.slice(e);tgt.focus();tgt.selectionStart=tgt.selectionEnd=s+ins.length;}
+           else{tgt.value+=ins;tgt.focus();}});});
+         document.getElementById('tplSave').addEventListener('click',function(){
+           localStorage.setItem('lepton_email_template',JSON.stringify({name:(document.getElementById('tplName')||{}).value,subject:(document.getElementById('tplSubject')||{}).value,body:(document.getElementById('tplBody')||{}).value}));
+           close();if(pch())pch().style.display='none';
+           if(window.__refreshSteps)window.__refreshSteps();
+         });
+       })();
+     </script>
+     <script>
+       (function(){
+         function hasLinks(){try{var a=JSON.parse(localStorage.getItem('lepton_portfolio_links'));return Array.isArray(a)&&a.length>0;}catch(_){return false;}}
+         function hasTemplate(){try{return !!JSON.parse(localStorage.getItem('lepton_email_template'));}catch(_){return false;}}
+         function compute(){
+           var done=[hasLinks(),hasTemplate(),false,false,false],prevAll=true;
+           for(var i=0;i<5;i++){
+             var el=document.getElementById('ob-s'+(i+1));if(!el)continue;
+             var state=done[i]?'done':(prevAll?'active':'locked');
+             el.classList.remove('ob-active','ob-locked','ob-done');el.classList.add('ob-'+state);
+             var tag=el.querySelector('.ob-tag');
+             if(tag){if(state==='active')tag.innerHTML=el.getAttribute('data-badge')?'<span class="ob-badge">'+el.getAttribute('data-badge')+'</span>':'';
+               else if(state==='locked')tag.innerHTML=el.getAttribute('data-note')?'<span class="ob-note">'+el.getAttribute('data-note')+'</span>':'';
+               else tag.innerHTML='';}
+             var btn=el.querySelector('.ob-btn');if(btn)btn.style.display=(state==='active')?'inline-flex':'none';
+             prevAll=prevAll&&done[i];
+           }
+         }
+         window.__refreshSteps=compute;compute();
+       })();
+     </script>`,
+  )
+}
+
 // Shared top bar with the three product tabs (Source / Qualifying / Outbound).
 function shellNav(email: string, active: 'source' | 'qualifying' | 'outbound'): string {
   const tab = (href: string, label: string, key: string) =>
@@ -157,66 +601,89 @@ export function sourceView(email: string): string {
   return page(
     'Source — Lepton',
     shellNav(email, 'source') +
-      `<div class="wrap" style="max-width:1040px">
+      `<div class="wrap" style="max-width:1320px">
        <div class="flex"><h3>Source leads</h3>
-         <select id="listSel" style="width:300px"></select>
-       </div>
-       <p class="hint">Discover the Instagram handles of people running events, then auto-find their WhatsApp number with gpt-5.4. Or import rows from Attio.</p>
-
-       <!-- create / import row -->
-       <div class="row2 mt" style="align-items:stretch;gap:14px">
-         <!-- NEW SOURCED LIST -->
-         <div class="card" style="flex:1">
-           <h4 style="margin-top:0">New Instagram source</h4>
-           <label>Niche label</label><input id="nNiche" placeholder="e.g. London supper clubs">
-           <label class="mt">Hashtags to search <span class="hint">(comma-separated, no #)</span></label>
-           <input id="nTags" placeholder="supperclublondon, londonsupperclub">
-           <button class="btn sm mt" id="nCreate">Create source</button>
-           <p class="mono mt" id="nMsg"></p>
+         <div class="row2">
+           <label class="hint" for="listSel" style="margin:0">List</label>
+           <select id="listSel" style="width:260px"></select>
+           <button class="btn sm" id="newList">+ New list</button>
          </div>
-         <!-- IMPORT FROM ATTIO -->
+       </div>
+       <p class="hint">A list is a container of leads. Create one with <b>+ New list</b>, then fill it three ways: add rows by hand, <b>Source from Instagram</b> (HikerAPI), or <b>Import from Attio</b>. Lists persist and are shared with Outbound. <span id="hikerNote"></span></p>
+
+       <!-- FILL THE CURRENT LIST: Attio (left) + Source from Instagram (right) -->
+       <div class="row2 mt" style="align-items:stretch;gap:14px">
+         <!-- LEFT: Import from Attio -->
          <div class="card" style="flex:1">
            <h4 style="margin-top:0">Import from Attio</h4>
-           <div id="atNote" class="hint">Connect Attio in Outbound → connections first.</div>
+           <!-- not connected: paste key inline -->
+           <div id="atConnect" style="display:none">
+             <div class="hint">Connect Attio to import records. Paste a workspace API key (Attio → Settings → Developers).</div>
+             <input id="atKey" type="password" placeholder="Attio API key" class="mt">
+             <button class="btn sm mt" id="atConnectBtn">Connect Attio</button>
+             <p class="mono mt" id="atConnMsg"></p>
+           </div>
+           <!-- connected: pick object → map columns → import -->
+           <div id="atConnected" class="flex" style="display:none;align-items:center;margin-bottom:6px">
+             <span class="mono" style="color:var(--green,#1f9d63)">● Attio connected</span>
+             <button class="x" id="atDisconnect" title="remove key">✕ remove key</button>
+           </div>
            <div id="atBox" style="display:none">
-             <label>Object type</label><select id="atObj"></select>
-             <div class="hint mt">Map Attio attributes → our columns:</div>
-             <div class="cfg3 mt">
-               <div><label>Phone</label><select id="mapPhone"></select></div>
-               <div><label>Name</label><select id="mapName"></select></div>
-               <div><label>IG handle</label><select id="mapIg"></select></div>
+             <label>1. Object type</label><select id="atObj"></select>
+             <label class="mt">From list <span class="hint">(optional — pick a subset instead of the whole object)</span></label><select id="atList"></select>
+             <div class="hint mt">2. Map each table column → an Attio attribute:</div>
+             <div id="atMap" class="mt">
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Instagram</span><select id="mapIg" style="flex:1"></select></div>
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Name</span><select id="mapName" style="flex:1"></select></div>
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Phone</span><select id="mapPhone" style="flex:1"></select></div>
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Link</span><select id="mapLink" style="flex:1"></select></div>
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Category</span><select id="mapCat" style="flex:1"></select></div>
              </div>
-             <div class="cfg3 mt"><div><label>Link</label><select id="mapLink"></select></div><div><label>Category</label><select id="mapCat"></select></div><div></div></div>
-             <label class="mt">List name</label><input id="atName" placeholder="e.g. Attio – Prospects">
-             <button class="btn sm mt" id="atImport">Import all rows</button>
+             <div class="hint mt" id="atFilterLbl" style="display:none">3. Filters <span class="hint">(optional — narrow the pull in Attio)</span></div>
+             <div id="atFilters" class="mt" style="display:none">
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Channel</span><select id="atChannel" style="flex:1"><option value="">— any channel —</option></select></div>
+               <label class="row2 mt" style="margin:8px 0 0;align-items:center"><input type="checkbox" id="atHasEmail" style="width:auto"> <span class="hint">only records with an email</span></label>
+             </div>
+             <button class="btn sm mt" id="atImport">Import rows → add to current list</button>
+             <p class="hint" style="margin-top:6px">Adds the pulled rows onto the list selected above. If none is selected, a new list is created.</p>
              <p class="mono mt" id="atMsg"></p>
            </div>
          </div>
-       </div>
-
-       <!-- SELECTED SOURCE: config + status -->
-       <div id="cfgCard" class="card mt" style="display:none">
-         <div class="flex"><h4 style="margin:0" id="cfgTitle">Source</h4>
+         <!-- RIGHT: Source from Instagram (per-list config) -->
+         <div id="cfgCard" class="card" style="flex:1;display:none">
+         <div class="flex"><h4 style="margin:0" id="cfgTitle">List</h4>
            <div class="row2"><span class="mono" id="srcStatus"></span>
              <button class="btn ghost sm" id="srcSave">Save</button>
              <button class="btn sm" id="srcStart">Turn on</button>
              <button class="x" id="srcDel">delete</button>
            </div>
          </div>
+         <h5 style="margin:14px 0 2px">Source from Instagram</h5>
+         <p class="hint" style="margin:0 0 8px">HikerAPI searches the hashtags below and returns the <b>handles</b> posting under them. For each handle we pull its profile (followers, bio link, any public number), keep those in your follower range, then gpt-5.4 web-searches the owner's WhatsApp number. <b>Handles to scan</b> caps how many to examine; <b>Numbers to add</b> stops once that many have a phone. Hit <b>Turn on</b> and rows fill the table below.</p>
          <div class="cfg3 mt">
-           <div><label>Phone numbers wanted</label><input type="number" id="cTarget" value="10"><div class="hint">stop once this many have a number</div></div>
+           <div><label>Handles to scan</label><input type="number" id="cHandles" value="40" min="1"><div class="hint">candidates to examine before stopping</div></div>
+           <div><label>Numbers to add</label><input type="number" id="cTarget" value="10" min="1"><div class="hint">stop once this many have a number</div></div>
            <div><label>Refresh every (days)</label><input type="number" id="cRefresh" value="2"><div class="hint">re-run cadence</div></div>
+         </div>
+         <div class="cfg3 mt">
            <div><label>Followers</label><div class="row2"><input type="number" id="cMin" value="500" style="width:70px"><span class="hint">to</span><input type="number" id="cMax" value="100000" style="width:80px"></div></div>
+           <div></div><div></div>
          </div>
          <label class="mt">Hashtags <span class="hint">(comma-separated)</span></label><input id="cTags">
-         <label class="mt">Phone-finder instruction <span class="hint">(gpt-5.4 prompt — editable)</span></label>
-         <textarea id="cInstr" rows="3"></textarea>
+         <label class="row2 mt" style="margin:12px 0 0;cursor:pointer;align-items:center"><input type="checkbox" id="cInstrToggle" style="width:auto"> <span>Phone-finder instruction <span class="hint">(advanced — gpt-5.4 prompt)</span></span></label>
+         <div id="cInstrBox" style="display:none;margin-top:6px"><textarea id="cInstr" rows="3"></textarea></div>
+       </div>
        </div>
 
        <!-- LIVE TABLE -->
        <div id="tblWrap" class="mt" style="display:none">
          <div class="muted" style="font-size:12px" id="tblMeta"></div>
-         <table class="tbl" id="srcTbl"></table>
+         <div style="overflow-x:auto"><table class="tbl" id="srcTbl" style="width:100%"></table></div>
+         <div id="addRow" class="row2 mt" style="display:none;gap:10px">
+           <button class="btn ghost sm" id="addRowBtn">+ Add row</button>
+           <button class="btn ghost sm" id="dedupeBtn" title="AI dedupe + cleanup of the rows">Dedupe (AI)</button>
+           <span class="mono" id="dedupeMsg" style="font-size:12px"></span>
+         </div>
        </div>
      </div>
 
@@ -231,29 +698,37 @@ export function sourceView(email: string): string {
 
        /* ---- sourced lists ---- */
        function loadLists(){return J('/api/source/lists').then(function(j){if(!j.ok)return;LISTS=j.lists;
-         if(!j.hiker)$('#nMsg').textContent='note: HIKER_API_KEY not set on server — discovery will fail.';
-         var sel=$('#listSel');sel.innerHTML='<option value="">— select a source —</option>'+LISTS.map(function(l){return '<option value="'+l.id+'"'+(CUR==l.id?' selected':'')+'>'+esc(l.name)+' ('+(l.size||0)+')</option>';}).join('');});}
+         if($('#hikerNote'))$('#hikerNote').textContent=j.hiker?'':'(HikerAPI key not set on server — Instagram sourcing will fail.)';
+         var sel=$('#listSel');sel.innerHTML='<option value="">— select a list —</option>'+LISTS.map(function(l){return '<option value="'+l.id+'"'+(CUR==l.id?' selected':'')+'>'+esc(l.name)+' ('+(l.size||0)+')</option>';}).join('');});}
        $('#listSel').onchange=function(){var id=$('#listSel').value;openList(id?Number(id):null);};
-
-       $('#nCreate').onclick=function(){var niche=$('#nNiche').value.trim();var tags=$('#nTags').value.split(',').map(function(t){return t.trim();}).filter(Boolean);
-         if(!niche){$('#nMsg').textContent='enter a niche label';return;}if(!tags.length){$('#nMsg').textContent='enter at least one hashtag';return;}
-         $('#nMsg').textContent='creating…';
-         POST('/api/source/lists',{name:niche,niche:niche,hashtags:tags}).then(function(j){
-           if(!j.ok){$('#nMsg').textContent='error: '+(j.error||'failed');return;}
-           $('#nMsg').textContent='created ✓';$('#nNiche').value='';$('#nTags').value='';
-           CUR=j.id;loadLists().then(function(){openList(j.id);});});};
+       /* + New list: create a persistent blank list ("New list N") and open its empty table */
+       $('#newList').onclick=function(){$('#newList').disabled=true;
+         POST('/api/source/lists/blank').then(function(j){$('#newList').disabled=false;
+           if(!j.ok)return;CUR=j.id;loadLists().then(function(){openList(j.id);});});};
+       $('#addRowBtn').onclick=function(){if(CUR==null)return;$('#addRowBtn').disabled=true;
+         POST('/api/source/lists/'+CUR+'/rows',{}).then(function(){$('#addRowBtn').disabled=false;fetchStatus();});};
+       /* AI dedupe + cleanup pass over the current list's rows */
+       $('#dedupeBtn').onclick=function(){if(CUR==null)return;
+         $('#dedupeBtn').disabled=true;$('#dedupeMsg').textContent='thinking… (gpt-5.4)';
+         POST('/api/source/lists/'+CUR+'/dedupe').then(function(j){$('#dedupeBtn').disabled=false;
+           if(!j.ok){$('#dedupeMsg').textContent='error: '+(j.error||'failed');return;}
+           $('#dedupeMsg').textContent='removed '+(j.removed||0)+' · merged '+(j.modified||0)+(j.capped?' (first 300 rows)':'')+' ✓';
+           fetchStatus();loadLists();});};
 
        function openList(id){CUR=id;if(POLL){clearInterval(POLL);POLL=null;}
-         if(!id){$('#cfgCard').style.display='none';$('#tblWrap').style.display='none';return;}
-         $('#listSel').value=id;$('#cfgCard').style.display='';$('#tblWrap').style.display='';
-         fetchStatus(true);POLL=setInterval(fetchStatus,3000);}
+         if(!id){$('#cfgCard').style.display='none';$('#tblWrap').style.display='none';$('#addRow').style.display='none';return;}
+         $('#listSel').value=id;$('#cfgCard').style.display='';$('#tblWrap').style.display='';$('#addRow').style.display='';
+         fetchStatus(true);}
 
        function fetchStatus(loadCfg){if(CUR==null)return;
          J('/api/source/lists/'+CUR+'/status').then(function(j){if(!j.ok)return;
            var running=(j.status==='running');
            $('#srcStatus').textContent=(running?'● sourcing… ':'')+ (j.found||0)+'/'+(j.target||0)+' phones · '+(j.scanned||0)+' scanned'+(j.status==='error'?' · error':'');
            $('#srcStart').textContent=running?'Sourcing…':'Turn on';$('#srcStart').disabled=running;
-           renderTbl(j.rows||[]);
+           /* editable when idle (manual fill); read-only snapshot while sourcing runs */
+           renderTbl(j.rows||[], !running);
+           if(running){ if(!POLL)POLL=setInterval(fetchStatus,3000); }
+           else { if(POLL){clearInterval(POLL);POLL=null;} }
            if(loadCfg){ /* hydrate config inputs once on open */
              var l=LISTS.filter(function(x){return x.id==CUR;})[0];$('#cfgTitle').textContent=l?l.name:'Source';
              hydrateCfg(j.config);}});}
@@ -261,50 +736,117 @@ export function sourceView(email: string): string {
        $('#srcStart').onclick=function(){if(CUR==null)return;saveCfg(true).then(function(){
          $('#srcStatus').textContent='starting…';POST('/api/source/lists/'+CUR+'/start').then(function(j){
            if(!j.ok){$('#srcStatus').textContent='error: '+(j.error||'failed');return;}
-           if(POLL)clearInterval(POLL);fetchStatus();POLL=setInterval(fetchStatus,3000);});});};
+           fetchStatus();/* fetchStatus starts polling while running */});});};
        $('#srcSave').onclick=function(){saveCfg(false);};
+       $('#cInstrToggle').onchange=function(){$('#cInstrBox').style.display=this.checked?'':'none';};
        $('#srcDel').onclick=function(){if(CUR==null)return;if(!confirm('Delete this source?'))return;
          DEL('/api/source/lists/'+CUR).then(function(){CUR=null;openList(null);loadLists();});};
        function saveCfg(quiet){if(CUR==null)return Promise.resolve();
-         var body={targetPhones:Number($('#cTarget').value)||10,refreshDays:Number($('#cRefresh').value)||2,
+         var body={targetHandles:Number($('#cHandles').value)||40,targetPhones:Number($('#cTarget').value)||10,refreshDays:Number($('#cRefresh').value)||2,
            minFollowers:Number($('#cMin').value)||0,maxFollowers:Number($('#cMax').value)||100000,
            hashtags:$('#cTags').value.split(',').map(function(t){return t.trim();}).filter(Boolean),
            instruction:$('#cInstr').value};
          return PUT('/api/source/lists/'+CUR,body).then(function(j){if(!quiet)$('#srcSave').textContent=j.ok?'Saved ✓':'Error';setTimeout(function(){$('#srcSave').textContent='Save';},1200);return j;});}
 
        /* hydrate the config inputs the first time a list opens (status doesn't return cfg, so pull defaults from server on create) */
-       function hydrateCfg(s){if(!s)return;$('#cTarget').value=s.targetPhones;$('#cRefresh').value=s.refreshDays;$('#cMin').value=s.minFollowers;$('#cMax').value=s.maxFollowers;$('#cTags').value=(s.hashtags||[]).join(', ');$('#cInstr').value=s.instruction||'';}
+       function hydrateCfg(s){if(!s)return;$('#cHandles').value=(s.targetHandles!=null?s.targetHandles:40);$('#cTarget').value=s.targetPhones;$('#cRefresh').value=s.refreshDays;$('#cMin').value=s.minFollowers;$('#cMax').value=s.maxFollowers;$('#cTags').value=(s.hashtags||[]).join(', ');$('#cInstr').value=s.instruction||'';}
 
-       /* ---- live table (current columns) ---- */
-       function renderTbl(rows){
-         $('#tblMeta').textContent=rows.length+' candidates · '+rows.filter(function(r){return r.phone;}).length+' with a phone';
-         var head='<thead><tr><th>Instagram</th><th>Name</th><th>Phone</th><th>Link</th><th>Category</th></tr></thead>';
+       /* ---- live table — editable when idle, read-only snapshot while sourcing ---- */
+       var CAP=300; /* cap rendered rows for performance; all rows persist regardless */
+       function renderTbl(rows,editable){
+         var withPh=rows.filter(function(r){return r.phone;}).length;
+         var shown=Math.min(rows.length,CAP);
+         $('#tblMeta').textContent=rows.length+' rows · '+withPh+' with a phone'+(rows.length>CAP?(' · showing first '+CAP):'');
+         var head='<thead><tr><th>Instagram</th><th>Name</th><th>Phone</th><th>Link</th><th>Category</th><th style="width:28px"></th></tr></thead>';
          var dash='<span class="hint">—</span>';
-         var body=rows.map(function(r){
-           return '<tr><td>'+(r.instagram_handle?'@'+esc(r.instagram_handle):dash)+'</td>'
-             +'<td>'+(r.name?esc(r.name):dash)+'</td>'
-             +'<td>'+(r.phone?'<span class="mono">'+esc(r.phone)+'</span>':dash)+'</td>'
-             +'<td>'+(r.event_link?('<a href="'+esc(r.event_link)+'" target="_blank" rel="noopener">link ↗</a>'):dash)+'</td>'
-             +'<td>'+(r.category?esc(r.category):dash)+'</td></tr>';}).join('');
-         $('#srcTbl').innerHTML=head+'<tbody>'+(body||'<tr><td colspan="5" class="muted">No candidates yet — Turn on to start sourcing.</td></tr>')+'</tbody>';}
+         var body;
+         if(editable){
+           body=rows.slice(0,CAP).map(function(r,i){
+             function inp(f,v){return '<input class="rcell" data-idx="'+i+'" data-field="'+f+'" value="'+esc(v||'')+'" style="width:100%;border:1px solid #eee;border-radius:6px;background:#fff;padding:7px 8px;font-size:13px">';}
+             return '<tr>'
+               +'<td>'+inp('instagram_handle',r.instagram_handle)+'</td>'
+               +'<td>'+inp('name',r.name)+'</td>'
+               +'<td>'+inp('phone',r.phone)+'</td>'
+               +'<td>'+inp('event_link',r.event_link)+'</td>'
+               +'<td>'+inp('category',r.category)+'</td>'
+               +'<td><button class="x" title="delete row" onclick="delRow('+i+')">✕</button></td></tr>';}).join('');
+         } else {
+           body=rows.slice(0,CAP).map(function(r){
+             return '<tr><td>'+(r.instagram_handle?'@'+esc(r.instagram_handle):dash)+'</td>'
+               +'<td>'+(r.name?esc(r.name):dash)+'</td>'
+               +'<td>'+(r.phone?'<span class="mono">'+esc(r.phone)+'</span>':dash)+'</td>'
+               +'<td>'+(r.event_link?('<a href="'+esc(r.event_link)+'" target="_blank" rel="noopener">link ↗</a>'):dash)+'</td>'
+               +'<td>'+(r.category?esc(r.category):dash)+'</td><td></td></tr>';}).join('');
+         }
+         $('#srcTbl').innerHTML=head+'<tbody>'+(body||'<tr><td colspan="6" class="muted">Empty list — click <b>+ Add row</b> to fill it manually, set hashtags &amp; Turn on, or import from Attio.</td></tr>')+'</tbody>';
+         if(editable)wireCells();
+         void shown;}
+       function wireCells(){Array.prototype.slice.call(document.querySelectorAll('#srcTbl .rcell')).forEach(function(inp){
+         inp.onchange=function(){if(CUR==null)return;var idx=inp.getAttribute('data-idx');var row={};
+           Array.prototype.slice.call(document.querySelectorAll('#srcTbl .rcell[data-idx="'+idx+'"]')).forEach(function(x){row[x.getAttribute('data-field')]=x.value;});
+           PUT('/api/source/lists/'+CUR+'/rows/'+idx,row).then(function(){var l=LISTS.filter(function(x){return x.id==CUR;})[0];});};});}
+       window.delRow=function(idx){if(CUR==null)return;DEL('/api/source/lists/'+CUR+'/rows/'+idx).then(function(){fetchStatus();loadLists();});};
 
-       /* ---- Attio import (ported here, with attribute→column mapping) ---- */
-       function loadAttio(){J('/api/settings').then(function(j){if(j&&j.attioConnected){$('#atNote').style.display='none';$('#atBox').style.display='';loadObjects();}});}
+       /* ---- Attio import (ported here, with column→attribute mapping) ---- */
+       function loadAttio(){J('/api/settings').then(function(j){
+         var connected=j&&j.attioConnected;
+         $('#atConnect').style.display=connected?'none':'';
+         $('#atConnected').style.display=connected?'':'none';
+         $('#atBox').style.display=connected?'':'none';
+         if(connected)loadObjects();});}
+       $('#atConnectBtn').onclick=function(){var k=$('#atKey').value.trim();if(k.length<10){$('#atConnMsg').textContent='paste your Attio API key';return;}
+         $('#atConnMsg').textContent='connecting…';$('#atConnectBtn').disabled=true;
+         POST('/api/attio/connect',{key:k}).then(function(j){$('#atConnectBtn').disabled=false;
+           if(!j.ok){$('#atConnMsg').textContent='error: '+(j.error||'failed');return;}
+           $('#atConnMsg').textContent='';$('#atKey').value='';loadAttio();});};
+       $('#atDisconnect').onclick=function(){if(!confirm('Remove the Attio key? Imports will stop until you paste a key again.'))return;
+         POST('/api/attio/disconnect').then(function(){$('#atMsg').textContent='';loadAttio();});};
        function loadObjects(){J('/api/attio/objects').then(function(j){if(!j.ok){$('#atMsg').textContent=j.error||'connect Attio first';return;}
-         $('#atObj').innerHTML=j.objects.map(function(o){return '<option value="'+o.api_slug+'">'+esc(o.plural||o.api_slug)+'</option>';}).join('');$('#atObj').onchange=objChange;objChange();});}
+         $('#atObj').innerHTML=j.objects.map(function(o){return '<option value="'+o.api_slug+'">'+esc(o.plural||o.singular||o.api_slug)+'</option>';}).join('');$('#atObj').onchange=objChange;objChange();});}
+       var ATEMAIL='';
        function objChange(){var obj=$('#atObj').value;if(!obj)return;
-         J('/api/attio/objects/'+obj+'/attributes').then(function(r){ATTRS=r.ok?r.attributes:[];
+         /* lists for the optional subset */
+         J('/api/attio/objects/'+obj+'/lists').then(function(r){var lists=(r&&r.ok&&r.lists)||[];
+           $('#atList').innerHTML='<option value="">— whole object —</option>'+lists.map(function(l){return '<option value="'+l.id+'">'+esc(l.name)+'</option>';}).join('');});
+         /* attributes + server-side coverage-aware suggestion (auto-map) + filter options */
+         Promise.all([J('/api/attio/objects/'+obj+'/attributes'),J('/api/attio/objects/'+obj+'/suggest')]).then(function(r){
+           ATTRS=(r[0]&&r[0].ok)?r[0].attributes:[];var sg=(r[1]&&r[1].ok)?r[1]:{};var m=sg.mapping||{};
            var opts=ATTRS.map(function(a){return '<option value="'+a.api_slug+'">'+esc(a.title)+' ('+a.type+')</option>';}).join('');
            var none='<option value="">— none —</option>';
-           $('#mapPhone').innerHTML=opts;$('#mapName').innerHTML=none+opts;$('#mapIg').innerHTML=none+opts;$('#mapLink').innerHTML=none+opts;$('#mapCat').innerHTML=none+opts;
-           var ph=(ATTRS.filter(function(a){return a.type==='phone-number';})[0]||{}).api_slug;if(ph)$('#mapPhone').value=ph;
-           var nm=(ATTRS.filter(function(a){return a.type==='personal-name';})[0]||{}).api_slug;if(nm)$('#mapName').value=nm;});}
-       $('#atImport').onclick=function(){var phone=$('#mapPhone').value;if(!phone){$('#atMsg').textContent='pick a phone attribute';return;}
-         var mapping={phone:phone,name:$('#mapName').value||undefined,vars:[]};
-         [['#mapIg','instagram_handle'],['#mapLink','instagram_link'],['#mapCat','category']].forEach(function(p){if($(p[0]).value)mapping.vars.push($(p[0]).value);});
-         $('#atMsg').textContent='importing…';
-         POST('/api/lists/attio',{name:$('#atName').value||'Attio list',object:$('#atObj').value,mapping:mapping}).then(function(j){
-           $('#atMsg').textContent=j.ok?'imported ✓ — available in Outbound':('error: '+(j.error||'failed'));if(j.ok)loadLists();});};
+           $('#mapPhone').innerHTML=none+opts;$('#mapName').innerHTML=none+opts;$('#mapIg').innerHTML=none+opts;$('#mapLink').innerHTML=none+opts;$('#mapCat').innerHTML=none+opts;
+           var bySlug=function(s){return (ATTRS.filter(function(a){return a.api_slug===s;})[0]||{}).api_slug;};
+           var byType=function(t){return (ATTRS.filter(function(a){return a.type===t;})[0]||{}).api_slug;};
+           /* prefer the server's suggestion (skips empty columns); fall back to local heuristics */
+           $('#mapPhone').value=m.phone||byType('phone-number')||'';
+           $('#mapName').value=m.name||byType('personal-name')||bySlug('name')||'';
+           $('#mapIg').value=m.instagram||bySlug('instagram')||'';
+           $('#mapLink').value=m.link||bySlug('external_url')||bySlug('bio_links')||bySlug('linkedin')||'';
+           $('#mapCat').value=bySlug('instagram_category')||bySlug('categories')||bySlug('lead_source')||'';
+           ATEMAIL=m.email||'';
+           /* filters: channel options + has-email availability (hidden if the object offers neither) */
+           var ch=sg.channelOptions||[];
+           $('#atChannel').innerHTML='<option value="">— any channel —</option>'+ch.map(function(o){return '<option value="'+esc(o)+'">'+esc(o)+'</option>';}).join('');
+           $('#atHasEmail').checked=false;$('#atHasEmail').disabled=!sg.hasEmail;
+           var hasFilters=(ch.length||sg.hasEmail);
+           $('#atFilterLbl').style.display=hasFilters?'':'none';$('#atFilters').style.display=hasFilters?'':'none';});}
+       $('#atImport').onclick=function(){
+         var vars=[];if(ATEMAIL)vars.push(ATEMAIL);
+         var mapping={phone:$('#mapPhone').value||undefined,name:$('#mapName').value||undefined,
+           instagram:$('#mapIg').value||undefined,link:$('#mapLink').value||undefined,category:$('#mapCat').value||undefined,vars:vars};
+         var filter={};if($('#atChannel').value)filter.primaryChannel=$('#atChannel').value;if($('#atHasEmail').checked)filter.hasEmail=true;
+         var body={object:$('#atObj').value,listId:$('#atList').value||undefined,mapping:mapping,filter:Object.keys(filter).length?filter:undefined};
+         function doImport(listId){
+           $('#atMsg').textContent='importing… (a whole object can take a moment)';$('#atImport').disabled=true;
+           POST('/api/source/lists/'+listId+'/import-attio',body).then(function(j){
+             $('#atImport').disabled=false;
+             if(!j.ok){$('#atMsg').textContent='error: '+(j.error||'failed');return;}
+             $('#atMsg').textContent='added '+j.added+' rows ✓'+(j.skippedNoPhone?(' ('+j.skippedNoPhone+' no phone)'):'')+(j.skippedSuppressed?(' ('+j.skippedSuppressed+' recently contacted)'):'');
+             CUR=listId;loadLists().then(function(){openList(listId);});
+           });
+         }
+         /* add onto the currently-open list, or spin up a new one to receive the rows */
+         if(CUR!=null){doImport(CUR);}
+         else{POST('/api/source/lists/blank').then(function(j){if(j.ok)doImport(j.id);});}};
 
        loadLists();loadAttio();
      </script>`,
@@ -315,12 +857,114 @@ export function qualifyingView(email: string): string {
   return page(
     'Qualifying — Lepton',
     shellNav(email, 'qualifying') +
-      `<div class="wrap" style="max-width:680px">
-         <div class="card center" style="margin-top:40px;padding:48px">
-           <h3>Qualifying</h3>
-           <p class="muted mt">Coming soon. This is where sourced leads get scored and filtered before they enter an outbound sequence.</p>
+      `<div class="wrap" style="max-width:1320px">
+       <div class="flex"><h3>Qualify leads</h3>
+         <div class="row2">
+           <label class="hint" for="qListSel" style="margin:0">List</label>
+           <select id="qListSel" style="width:280px"></select>
          </div>
-       </div>`,
+       </div>
+       <p class="hint">Pick a list, describe your <b>ideal lead</b> in the box, and gpt-5.4 scores every row <b>0–100</b> with a <b>tier</b> and a one-sentence <b>reason</b>. Each Instagram handle is re-checked against live profile data (followers, bio, business flag) first, so the score is grounded — the model judges only the data shown, it doesn't guess. <span id="qAiNote"></span></p>
+
+       <!-- CRITERIA + RUN -->
+       <div id="qCfg" class="card mt" style="display:none">
+         <div class="flex"><h4 style="margin:0" id="qTitle">List</h4>
+           <div class="row2"><span class="mono" id="qStatus"></span>
+             <button class="btn ghost sm" id="qSave">Save</button>
+             <button class="btn sm" id="qRun">Qualify</button>
+           </div>
+         </div>
+         <label class="mt">How to qualify <span class="hint">(plain English — your ideal lead + disqualifiers)</span></label>
+         <textarea id="qCriteria" rows="6"></textarea>
+         <div id="qBreak" class="row2 mt" style="display:none;gap:14px;align-items:center">
+           <span class="badge hot" id="qHot">hot 0</span>
+           <span class="badge warm" id="qWarm">warm 0</span>
+           <span class="badge cold" id="qCold">cold 0</span>
+           <span style="flex:1"></span>
+           <button class="btn ghost sm" id="qSpinHot" title="new list of leads scoring 70+">＋ List from hot</button>
+           <button class="btn ghost sm" id="qSpinWarm" title="new list of leads scoring 40+">＋ List from warm+</button>
+           <span class="mono" id="qSpinMsg" style="font-size:12px"></span>
+         </div>
+       </div>
+
+       <!-- LIVE SCORED TABLE -->
+       <div id="qTblWrap" class="mt" style="display:none">
+         <div class="muted" style="font-size:12px" id="qMeta"></div>
+         <div style="overflow-x:auto"><table class="tbl" id="qTbl" style="width:100%"></table></div>
+       </div>
+     </div>
+
+     <style>
+       .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid #ddd}
+       .badge.hot{background:#fdecea;color:#b3261e;border-color:#f3c0bb}
+       .badge.warm{background:#fff5e6;color:#9a6400;border-color:#f0d9a8}
+       .badge.cold{background:#eef1f4;color:#5b6670;border-color:#dde2e7}
+       #qTbl td .rs{font-variant-numeric:tabular-nums;font-weight:600}
+     </style>
+
+     <script>
+       var $=function(s){return document.querySelector(s);};
+       var J=function(u,o){return fetch(u,o).then(function(r){return r.json();}).catch(function(){return {ok:false,error:'bad response'};});};
+       var POST=function(u,b){return J(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})});};
+       var PUT=function(u,b){return J(u,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})});};
+       var esc=function(s){return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+       var LISTS=[],CUR=null,POLL=null,HYDRATED=false;
+
+       function loadLists(){return J('/api/qualify/lists').then(function(j){if(!j.ok)return;LISTS=j.lists;
+         if($('#qAiNote'))$('#qAiNote').textContent=j.ai?'':'(OPENAI_API_KEY not set on server — qualifying will fail.)';
+         var sel=$('#qListSel');sel.innerHTML='<option value="">— select a list —</option>'+LISTS.map(function(l){return '<option value="'+l.id+'"'+(CUR==l.id?' selected':'')+'>'+esc(l.name)+' ('+(l.size||0)+')</option>';}).join('');});}
+       $('#qListSel').onchange=function(){var id=$('#qListSel').value;openList(id?Number(id):null);};
+
+       function openList(id){CUR=id;HYDRATED=false;if(POLL){clearInterval(POLL);POLL=null;}
+         if(!id){$('#qCfg').style.display='none';$('#qTblWrap').style.display='none';return;}
+         $('#qListSel').value=id;$('#qCfg').style.display='';$('#qTblWrap').style.display='';
+         var l=LISTS.filter(function(x){return x.id==CUR;})[0];$('#qTitle').textContent=l?l.name:'List';
+         fetchStatus();}
+
+       function fetchStatus(){if(CUR==null)return;
+         J('/api/qualify/lists/'+CUR+'/status').then(function(j){if(!j.ok)return;
+           var running=(j.status==='running');
+           $('#qStatus').textContent=(running?'● scoring… ':'')+(j.scanned||0)+'/'+(j.total||0)+' scored'+(j.status==='error'?' · error':'');
+           $('#qRun').textContent=running?'Qualifying…':'Qualify';$('#qRun').disabled=running;
+           if(!HYDRATED){$('#qCriteria').value=j.criteria||'';HYDRATED=true;}
+           var c=j.counts||{hot:0,warm:0,cold:0,scored:0};
+           $('#qBreak').style.display=c.scored?'flex':'none';
+           $('#qHot').textContent='hot '+c.hot;$('#qWarm').textContent='warm '+c.warm;$('#qCold').textContent='cold '+c.cold;
+           renderTbl(j.rows||[]);
+           if(running){if(!POLL)POLL=setInterval(fetchStatus,3000);}else{if(POLL){clearInterval(POLL);POLL=null;}}});}
+
+       $('#qSave').onclick=function(){if(CUR==null)return;
+         PUT('/api/qualify/lists/'+CUR,{criteria:$('#qCriteria').value}).then(function(j){
+           $('#qSave').textContent=j.ok?'Saved ✓':'Error';setTimeout(function(){$('#qSave').textContent='Save';},1200);});};
+       $('#qRun').onclick=function(){if(CUR==null)return;$('#qStatus').textContent='starting…';
+         POST('/api/qualify/lists/'+CUR+'/run',{criteria:$('#qCriteria').value}).then(function(j){
+           if(!j.ok){$('#qStatus').textContent='error: '+(j.error||'failed');return;}fetchStatus();});};
+
+       function spin(min){if(CUR==null)return;$('#qSpinMsg').textContent='creating…';
+         POST('/api/qualify/lists/'+CUR+'/spinoff',{min:min}).then(function(j){
+           if(!j.ok){$('#qSpinMsg').textContent='error: '+(j.error||'failed');return;}
+           $('#qSpinMsg').textContent='created "'+esc(j.name)+'" ('+j.count+') ✓ — find it in Source & Outbound';loadLists();});}
+       $('#qSpinHot').onclick=function(){spin(70);};
+       $('#qSpinWarm').onclick=function(){spin(40);};
+
+       var CAP=300;
+       function renderTbl(rows){
+         var scored=rows.filter(function(r){return r.tier;}).length;
+         $('#qMeta').textContent=rows.length+' rows · '+scored+' scored'+(rows.length>CAP?(' · showing first '+CAP):'');
+         var head='<thead><tr><th>Instagram</th><th>Name</th><th>Phone</th><th style="width:56px">Score</th><th style="width:64px">Tier</th><th>Reason</th></tr></thead>';
+         var dash='<span class="hint">—</span>';
+         var body=rows.slice(0,CAP).map(function(r){
+           var tier=r.tier?'<span class="badge '+r.tier+'">'+r.tier+'</span>':dash;
+           var score=(r.score!=null)?'<span class="rs">'+r.score+'</span>':dash;
+           return '<tr><td>'+(r.instagram_handle?'@'+esc(r.instagram_handle):dash)+'</td>'
+             +'<td>'+(r.name?esc(r.name):dash)+'</td>'
+             +'<td>'+(r.phone?'<span class="mono">'+esc(r.phone)+'</span>':dash)+'</td>'
+             +'<td>'+score+'</td><td>'+tier+'</td>'
+             +'<td>'+(r.reason?esc(r.reason):dash)+'</td></tr>';}).join('');
+         $('#qTbl').innerHTML=head+'<tbody>'+(body||'<tr><td colspan="6" class="muted">This list has no rows yet. Add leads in the Source tab first.</td></tr>')+'</tbody>';}
+
+       loadLists();
+     </script>`,
   )
 }
 
@@ -768,7 +1412,7 @@ export function dashboardView(email: string): string {
        function renderLists(){return J('/api/lists').then(function(j){if(j.ok)LISTS=j.lists;renderCanvas();
          var s=SEL?findNode(SEL):null;if(s&&s.type==='start')renderInspector();});}
        function loadListTable(){var sel=$('#iList');if(!sel)return;var id=sel.value;var box=$('#iListTbl');if(!box)return;
-         if(!id){box.innerHTML='<p class="hint">No list selected yet — import people below to create one.</p>';return;}
+         if(!id){box.innerHTML='<p class="hint">No list selected yet — pick one above, or build lists in the <a href="/source">Source</a> tab.</p>';return;}
          box.innerHTML='<p class="hint">loading…</p>';
          J('/api/lists/'+id+'/contacts').then(function(j){if(!j.ok){box.innerHTML='<p class="hint">'+(j.error||'could not load this list')+'</p>';return;}
            var rows=j.contacts||[];
@@ -781,18 +1425,6 @@ export function dashboardView(email: string): string {
              return '<tr><td>'+ig+'</td><td>'+cat+'</td><td>'+lk+'</td></tr>';}).join('');
            box.innerHTML='<div class="muted" style="font-size:12px">'+rows.length+' people in this list'+(rows.length>200?' (showing 200)':'')+'</div>'
              +'<table class="tbl"><thead><tr><th>Instagram</th><th>Category</th><th>Link</th></tr></thead><tbody>'+body+'</tbody></table>';});}
-       function loadAttioObjectsInto(){J('/api/attio/objects').then(function(j){if(!j.ok){if($('#iAtResult'))$('#iAtResult').textContent=j.error||'connect Attio in Connections (left dashboard) first';return;}
-         $('#iAtObj').innerHTML=j.objects.map(function(o){return '<option value="'+o.api_slug+'">'+esc(o.plural||o.api_slug)+'</option>';}).join('');$('#iAtObj').onchange=atObjChangeInto;atObjChangeInto();});}
-       function atObjChangeInto(){var obj=$('#iAtObj').value;if(!obj)return;
-         Promise.all([J('/api/attio/objects/'+obj+'/attributes'),J('/api/attio/objects/'+obj+'/lists')]).then(function(r){
-           ATTRS=(r[0].ok?r[0].attributes:[]);var lists=(r[1].ok?r[1].lists:[]);
-           $('#iAtList').innerHTML='<option value="">— whole object —</option>'+lists.map(function(l){return '<option value="'+l.id+'">'+esc(l.name)+'</option>';}).join('');
-           var opts=ATTRS.map(function(a){return '<option value="'+a.api_slug+'">'+esc(a.title)+' ('+a.type+')</option>';}).join('');
-           var none='<option value="">— none —</option>';
-           $('#iAtPhone').innerHTML=opts;$('#iAtName2').innerHTML=none+opts;$('#iAtIg').innerHTML=none+opts;$('#iAtLink').innerHTML=none+opts;
-           var ph=(ATTRS.filter(function(a){return a.type==='phone-number';})[0]||{}).api_slug;if(ph)$('#iAtPhone').value=ph;
-           var nm=(ATTRS.filter(function(a){return a.type==='personal-name';})[0]||{}).api_slug;if(nm)$('#iAtName2').value=nm;});}
-
        /* lead table with draggable columns */
        var COLS=[{k:'status',l:'Status'},{k:'instagram_handle',l:'Instagram handle'},{k:'category',l:'Category'},{k:'account',l:'WA account (sending from)'},{k:'event_link',l:'Event (Instagram link)'}];
        var STMAP={pending:'No contact',sent:'Contacted',completed:'Contacted',replied:'Replied',failed:'Failed',skipped:'Skipped'};

@@ -10,6 +10,9 @@ import { getPolicy } from './policy.ts'
 export function saveAttioKey(tenantId: string, key: string): void {
   db.prepare('UPDATE tenants SET attio_api_key = ? WHERE id = ?').run(enc(key), tenantId)
 }
+export function clearAttioKey(tenantId: string): void {
+  db.prepare('UPDATE tenants SET attio_api_key = NULL WHERE id = ?').run(tenantId)
+}
 export function getAttioKey(tenantId: string): string | null {
   const raw = (db.prepare('SELECT attio_api_key FROM tenants WHERE id = ?').get(tenantId) as { attio_api_key: string | null })
     ?.attio_api_key
@@ -37,6 +40,61 @@ export function writebackNote(tenantId: string, contactId: number, text: string)
   if (!c?.attio_record_id) return
   void import('./attio.ts').then((a) =>
     a.writeNote(key, c.attio_object ?? 'people', c.attio_record_id as string, 'WhatsApp', text).catch(() => {}),
+  )
+}
+
+// --- 10-day suppression (don't cold-contact someone messaged within the window) ---
+export const SUPPRESS_DAYS = 10
+const DAY_MS = 86_400_000
+
+// Drop contact ids messaged within the suppression window (local record of our own sends).
+export function filterSuppressed(tenantId: string, ids: number[]): number[] {
+  if (!ids.length) return ids
+  const cutoff = Date.now() - SUPPRESS_DAYS * DAY_MS
+  const stmt = db.prepare('SELECT last_messaged_at FROM contacts WHERE id = ? AND tenant_id = ?')
+  return ids.filter((id) => {
+    const r = stmt.get(id, tenantId) as { last_messaged_at: number | null } | undefined
+    return !r?.last_messaged_at || r.last_messaged_at < cutoff
+  })
+}
+
+// Cache of the per-object "last WhatsApp contact" date attribute slug (write-back target).
+const waSlugCache = new Map<string, string | null>()
+async function whatsappDateSlugFor(key: string, object: string): Promise<string | null> {
+  if (waSlugCache.has(object)) return waSlugCache.get(object) ?? null
+  const a = await import('./attio.ts')
+  const slug = a.whatsappDateSlug(await a.listObjectAttributes(key, object)) ?? null
+  waSlugCache.set(object, slug)
+  return slug
+}
+
+// Record a successful send: stamp last_messaged_at locally and (if enabled) write today's
+// date onto the contact's Attio last-WhatsApp-contact attribute for cross-tool suppression.
+export function markMessaged(tenantId: string, contactId: number): void {
+  db.prepare('UPDATE contacts SET last_messaged_at = ? WHERE id = ? AND tenant_id = ?').run(Date.now(), contactId, tenantId)
+  if (!getWriteback(tenantId)) return
+  const key = getAttioKey(tenantId)
+  if (!key) return
+  const c = db
+    .prepare('SELECT attio_record_id, attio_object FROM contacts WHERE id = ? AND tenant_id = ?')
+    .get(contactId, tenantId) as { attio_record_id: string | null; attio_object: string | null } | undefined
+  if (!c?.attio_record_id) return
+  const object = c.attio_object ?? 'people'
+  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+  void whatsappDateSlugFor(key, object)
+    .then((slug) => {
+      if (slug) return import('./attio.ts').then((a) => a.writeDateAttr(key, object, c.attio_record_id as string, slug, today))
+    })
+    .catch(() => {})
+}
+
+// Cache the is-on-WhatsApp result so we only query Baileys once per contact.
+export function cacheWhatsappRegistered(tenantId: string, contactId: number, registered: boolean): void {
+  db.prepare('UPDATE contacts SET wa_registered = ?, wa_checked_at = ? WHERE id = ? AND tenant_id = ?').run(
+    registered ? 1 : 0,
+    Date.now(),
+    contactId,
+    tenantId,
   )
 }
 
@@ -271,6 +329,7 @@ export interface AttioListConfig {
   object: string
   listId?: string
   mapping: import('./attio.ts').AttioMapping
+  filter?: import('./attio.ts').AttioFilterConfig
 }
 export interface ListSummary {
   id: number
@@ -298,6 +357,78 @@ export function createSourcedList(tenantId: string, name: string, sourcing: unkn
     .run(tenantId, name, JSON.stringify({ rows: [], sourcing }), Date.now())
   return Number(info.lastInsertRowid)
 }
+// Next default name for a manually-created list: "New list 1", "New list 2", …
+export function nextDefaultListName(tenantId: string): string {
+  const rows = db.prepare('SELECT name FROM lead_lists WHERE tenant_id = ?').all(tenantId) as { name: string }[]
+  let max = 0
+  for (const r of rows) {
+    const m = /^New list (\d+)$/.exec(r.name ?? '')
+    if (m) max = Math.max(max, Number(m[1]))
+  }
+  return `New list ${max + 1}`
+}
+
+// Append a manually-entered row to a sourced/csv list's stored rows.
+export function addListRow(tenantId: string, id: number, row: UpsertRow): boolean {
+  const list = getLeadList(tenantId, id)
+  if (!list || (list.type !== 'sourced' && list.type !== 'csv')) return false
+  const cfg = JSON.parse(list.config)
+  cfg.rows = Array.isArray(cfg.rows) ? cfg.rows : []
+  cfg.rows.push(row)
+  db.prepare('UPDATE lead_lists SET config = ? WHERE id = ? AND tenant_id = ?').run(JSON.stringify(cfg), id, tenantId)
+  return true
+}
+
+// Update a row in place (manual inline editing).
+export function updateListRow(tenantId: string, id: number, idx: number, patch: Partial<UpsertRow>): boolean {
+  const list = getLeadList(tenantId, id)
+  if (!list || (list.type !== 'sourced' && list.type !== 'csv')) return false
+  const cfg = JSON.parse(list.config)
+  if (!Array.isArray(cfg.rows) || idx < 0 || idx >= cfg.rows.length) return false
+  cfg.rows[idx] = { ...cfg.rows[idx], ...patch }
+  db.prepare('UPDATE lead_lists SET config = ? WHERE id = ? AND tenant_id = ?').run(JSON.stringify(cfg), id, tenantId)
+  return true
+}
+
+// Overwrite a list's rows wholesale (used by the dedupe agent to persist its result).
+export function setListRows(tenantId: string, id: number, rows: UpsertRow[]): boolean {
+  const list = getLeadList(tenantId, id)
+  if (!list || (list.type !== 'sourced' && list.type !== 'csv')) return false
+  const cfg = JSON.parse(list.config)
+  cfg.rows = rows
+  db.prepare('UPDATE lead_lists SET config = ? WHERE id = ? AND tenant_id = ?').run(JSON.stringify(cfg), id, tenantId)
+  return true
+}
+
+// Read a list's raw stored rows.
+export function getListRows(tenantId: string, id: number): UpsertRow[] {
+  const list = getLeadList(tenantId, id)
+  if (!list) return []
+  try { return (JSON.parse(list.config).rows as UpsertRow[]) ?? [] } catch { return [] }
+}
+
+// Append many rows at once (used by Attio import → materialize onto a list).
+export function addListRows(tenantId: string, id: number, rows: UpsertRow[]): number {
+  const list = getLeadList(tenantId, id)
+  if (!list || (list.type !== 'sourced' && list.type !== 'csv')) return 0
+  const cfg = JSON.parse(list.config)
+  cfg.rows = Array.isArray(cfg.rows) ? cfg.rows : []
+  cfg.rows.push(...rows)
+  db.prepare('UPDATE lead_lists SET config = ? WHERE id = ? AND tenant_id = ?').run(JSON.stringify(cfg), id, tenantId)
+  return rows.length
+}
+
+// Remove a row by its index in the stored rows array.
+export function deleteListRow(tenantId: string, id: number, idx: number): boolean {
+  const list = getLeadList(tenantId, id)
+  if (!list || (list.type !== 'sourced' && list.type !== 'csv')) return false
+  const cfg = JSON.parse(list.config)
+  if (!Array.isArray(cfg.rows) || idx < 0 || idx >= cfg.rows.length) return false
+  cfg.rows.splice(idx, 1)
+  db.prepare('UPDATE lead_lists SET config = ? WHERE id = ? AND tenant_id = ?').run(JSON.stringify(cfg), id, tenantId)
+  return true
+}
+
 export function updateSourcing(tenantId: string, id: number, sourcing: unknown): void {
   const list = getLeadList(tenantId, id)
   if (!list || list.type !== 'sourced') return
@@ -338,7 +469,13 @@ export async function fetchListContacts(tenantId: string, listId: number): Promi
   const key = getAttioKey(tenantId)
   if (!key) return []
   const attio = await import('./attio.ts')
-  const pull = await attio.pullContacts(key, { object: cfg.object, listId: cfg.listId || undefined, mapping: cfg.mapping })
+  const pull = await attio.pullContacts(key, {
+    object: cfg.object,
+    listId: cfg.listId || undefined,
+    mapping: cfg.mapping,
+    filter: cfg.filter,
+    suppressDays: SUPPRESS_DAYS,
+  })
   return importAttioContacts(tenantId, pull.contacts, cfg.object)
 }
 
@@ -359,7 +496,13 @@ export async function previewListContacts(tenantId: string, id: number): Promise
   const key = getAttioKey(tenantId)
   if (!key) return []
   const attio = await import('./attio.ts')
-  const pull = await attio.pullContacts(key, { object: cfg.object, listId: cfg.listId || undefined, mapping: cfg.mapping })
+  const pull = await attio.pullContacts(key, {
+    object: cfg.object,
+    listId: cfg.listId || undefined,
+    mapping: cfg.mapping,
+    filter: cfg.filter,
+    suppressDays: SUPPRESS_DAYS,
+  })
   return pull.contacts.map((c) => map({ name: c.name, phone: c.phone as string, vars: c.vars }))
 }
 
@@ -473,6 +616,8 @@ export function enrollContacts(tenantId: string, campaignId: number, contactIds:
   const accts = weightedRotation(getCampaignAccounts(campaignId))
   const seq = parseSequence(c.sequence) ?? fallbackSequence(c.template)
   const start = firstNode(seq)
+  // 10-day suppression: skip contacts we've cold-messaged within the window
+  contactIds = filterSuppressed(tenantId, contactIds)
   // continue round-robin from however many are already assigned
   let rr = (db.prepare('SELECT COUNT(*) n FROM campaign_contacts WHERE campaign_id = ?').get(campaignId) as { n: number }).n
   const ins = db.prepare(
