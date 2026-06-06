@@ -219,6 +219,23 @@ export function onboardingView(_email: string): string {
          <button class="pch-x" id="pchClose">&times;</button>
          <div class="pch-h">How do you want to write your pitch?</div>
 
+         <div class="pch-cards">
+           <div class="pch-card sel" data-v="ai">
+             <span class="pch-card-mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+             <span class="pch-card-radio"></span>
+             <div class="pch-card-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4"/><path d="m13 7 6 6L7 21l-2-2L13 7z"/><path d="m16 4 1 1"/></svg></div>
+             <div class="pch-card-t">Bento writes it</div>
+             <div class="pch-card-d">AI draft, fully editable</div>
+           </div>
+           <div class="pch-card" data-v="own">
+             <span class="pch-card-mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+             <span class="pch-card-radio"></span>
+             <div class="pch-card-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+             <div class="pch-card-t">Write my own</div>
+             <div class="pch-card-d">Start from scratch</div>
+           </div>
+         </div>
+
          <div class="pch-lbl">Tell us about yourself <span class="req">*</span></div>
          <div class="pf-dd" id="ddAbout">
            <button type="button" class="pf-dd-btn">
@@ -314,6 +331,19 @@ export function onboardingView(_email: string): string {
        .pch-modal{position:relative;background:#fff;border-radius:16px;width:100%;max-width:920px;padding:40px 46px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
        .pch-x{position:absolute;top:18px;right:24px;background:none;border:none;font-size:26px;line-height:1;color:#b3b3b3;cursor:pointer}
        .pch-h{font-size:30px;font-weight:700;color:#111;margin-bottom:28px;letter-spacing:-.01em}
+       .pch-cards{display:flex;gap:16px;margin-bottom:26px}
+       .pch-card{position:relative;flex:1;border:1px solid #d9d9d9;border-radius:14px;padding:16px 18px;cursor:pointer;background:#fff}
+       .pch-card.sel{background:linear-gradient(135deg,#0c3522,#14532d);border-color:#14532d}
+       .pch-card-ico{width:34px;height:34px;border-radius:50%;background:#f1f1f1;display:flex;align-items:center;justify-content:center;color:#14532d;margin-bottom:10px}
+       .pch-card.sel .pch-card-ico{background:#fff;color:#14532d}
+       .pch-card-t{font-size:20px;font-weight:700;color:#111;letter-spacing:-.01em}
+       .pch-card.sel .pch-card-t{color:#fff}
+       .pch-card-d{font-size:14px;color:#777;margin-top:2px}
+       .pch-card.sel .pch-card-d{color:#cfe3d8}
+       .pch-card-mark{position:absolute;top:14px;right:14px;width:22px;height:22px;border-radius:50%;background:#fff;color:#14532d;display:none;align-items:center;justify-content:center}
+       .pch-card-radio{position:absolute;top:14px;right:14px;width:21px;height:21px;border-radius:50%;border:2px solid #d3d3d3;box-sizing:border-box}
+       .pch-card.sel .pch-card-mark{display:flex}
+       .pch-card.sel .pch-card-radio{display:none}
        .pch-lbl{font-size:18px;font-weight:700;color:#111;margin-bottom:10px}
        .pch-sub{font-size:15px;color:#555;margin:-4px 0 10px}
        .pf-dd{position:relative;margin-bottom:12px}
@@ -391,6 +421,9 @@ export function onboardingView(_email: string): string {
            document.getElementById('aboutText').style.display=(v==='write')?'block':'none';
          });
          initDD('ddWork');
+         var cards=bd.querySelectorAll('.pch-card');
+         cards.forEach(function(c){c.addEventListener('click',function(){cards.forEach(function(x){x.classList.remove('sel');});c.classList.add('sel');});});
+         function chosenMode(){var s=bd.querySelector('.pch-card.sel');return s?s.getAttribute('data-v'):'ai';}
          function open(){bd.style.display='flex';}
          function close(){bd.style.display='none';}
          var t=document.getElementById('obPitch');if(t)t.addEventListener('click',function(e){e.preventDefault();open();});
@@ -398,7 +431,7 @@ export function onboardingView(_email: string): string {
          document.getElementById('pchBack').addEventListener('click',close);
          bd.addEventListener('click',function(e){if(e.target===bd)close();});
          document.getElementById('pchGen').addEventListener('click',function(){
-           var data={about:document.querySelector('#ddAbout .pf-dd-val').textContent,aboutUrl:(document.getElementById('aboutUrl')||{}).value,aboutText:(document.getElementById('aboutText')||{}).value,work:document.querySelector('#ddWork .pf-dd-val').textContent,workUrl:(document.getElementById('workUrl')||{}).value};
+           var data={mode:chosenMode(),about:document.querySelector('#ddAbout .pf-dd-val').textContent,aboutUrl:(document.getElementById('aboutUrl')||{}).value,aboutText:(document.getElementById('aboutText')||{}).value,work:document.querySelector('#ddWork .pf-dd-val').textContent,workUrl:(document.getElementById('workUrl')||{}).value};
            localStorage.setItem('lepton_pitch_setup',JSON.stringify(data));close();
          });
        })();
