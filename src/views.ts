@@ -493,7 +493,7 @@ export function onboardingView(email: string): string {
          var trig=document.getElementById('obAddLink');if(trig)trig.addEventListener('click',function(e){e.preventDefault();open();});
          document.getElementById('lnkCancel').addEventListener('click',function(e){e.preventDefault();close();});
          bd.addEventListener('click',function(e){if(e.target===bd)close();});
-         function fullUrl(r){var h=(r.handle||'').trim();if(!h)return '';if(/^https?:\/\//i.test(h))return h;var p=(PLAT[r.platform]||PLAT.Portfolio).pre;return p+h.replace(/^@+/,'');}
+         function fullUrl(r){var h=(r.handle||'').trim();if(!h)return '';if(/^https?:\\/\\//i.test(h))return h;var p=(PLAT[r.platform]||PLAT.Portfolio).pre;return p+h.replace(/^@+/,'');}
          saveEl.addEventListener('click',function(){if(saveEl.disabled)return;
            var kept=rows.filter(function(r){return (r.handle||'').trim();});
            localStorage.setItem(KEY,JSON.stringify(kept));
@@ -730,7 +730,7 @@ export function startOnboardingView(_email: string): string {
      </style>
      <script>
        (function(){
-         var ROLES=["Creator / Influencer","UGC Creator","Founder / Business Owner","Marketer","Agency / Manager","Freelancer","Other"];
+         var ROLES=["Creator / Influencer","UGC Creator","Founder / Business Owner","Marketer","Agency / Manager","Freelancer","Event Organiser","Other"];
          var JOURNEY=[
            {e:"\\uD83C\\uDF31",t:"Brand new - working toward my first deal"},
            {e:"\\u2709\\uFE0F",t:"Done some creator work, but new to pitching"},
