@@ -275,8 +275,8 @@ export interface AttioListConfig {
 export interface ListSummary {
   id: number
   name: string
-  type: 'csv' | 'attio'
-  size: number // best-effort: csv row count, or 0 for live attio
+  type: 'csv' | 'attio' | 'sourced'
+  size: number // best-effort: snapshot row count, or 0 for live attio
 }
 
 export function listLeadLists(tenantId: string): ListSummary[] {
@@ -285,10 +285,28 @@ export function listLeadLists(tenantId: string): ListSummary[] {
     let size = 0
     try {
       const cfg = JSON.parse(r.config)
-      if (r.type === 'csv') size = (cfg.rows?.length as number) ?? 0
+      if (r.type === 'csv' || r.type === 'sourced') size = (cfg.rows?.length as number) ?? 0
     } catch { /* ignore */ }
     return { id: r.id, name: r.name, type: r.type, size }
   })
+}
+
+// --- sourced lists (filled by the sourcing engine; stored as a snapshot like CSV) ---
+export function createSourcedList(tenantId: string, name: string, sourcing: unknown): number {
+  const info = db
+    .prepare("INSERT INTO lead_lists (tenant_id, name, type, config, created_at) VALUES (?, ?, 'sourced', ?, ?)")
+    .run(tenantId, name, JSON.stringify({ rows: [], sourcing }), Date.now())
+  return Number(info.lastInsertRowid)
+}
+export function updateSourcing(tenantId: string, id: number, sourcing: unknown): void {
+  const list = getLeadList(tenantId, id)
+  if (!list || list.type !== 'sourced') return
+  const cfg = JSON.parse(list.config)
+  db.prepare('UPDATE lead_lists SET config = ? WHERE id = ? AND tenant_id = ?').run(
+    JSON.stringify({ rows: cfg.rows ?? [], sourcing }),
+    id,
+    tenantId,
+  )
 }
 export function getLeadList(tenantId: string, id: number): LeadListRow | undefined {
   return db.prepare('SELECT * FROM lead_lists WHERE id = ? AND tenant_id = ?').get(id, tenantId) as LeadListRow | undefined
@@ -314,7 +332,8 @@ export async function fetchListContacts(tenantId: string, listId: number): Promi
   const list = getLeadList(tenantId, listId)
   if (!list) return []
   const cfg = JSON.parse(list.config)
-  if (list.type === 'csv') return upsertContacts(tenantId, (cfg.rows as UpsertRow[]) ?? [])
+  // csv + sourced are snapshots of rows; upsert only those with a phone (empty phones are skipped)
+  if (list.type === 'csv' || list.type === 'sourced') return upsertContacts(tenantId, (cfg.rows as UpsertRow[]) ?? [])
   // attio: re-query live so new records flow in on every fetch
   const key = getAttioKey(tenantId)
   if (!key) return []
@@ -336,7 +355,7 @@ export async function previewListContacts(tenantId: string, id: number): Promise
     event_link: r.event_link ?? r.vars?.instagram_link ?? r.vars?.event_link ?? null,
     category: r.category ?? r.vars?.category ?? null,
   })
-  if (list.type === 'csv') return ((cfg.rows as UpsertRow[]) ?? []).map(map)
+  if (list.type === 'csv' || list.type === 'sourced') return ((cfg.rows as UpsertRow[]) ?? []).map(map)
   const key = getAttioKey(tenantId)
   if (!key) return []
   const attio = await import('./attio.ts')

@@ -22,12 +22,31 @@ import { startCampaign, pauseCampaign, campaignAccountIds } from './engine.ts'
 import { render } from './engine.ts'
 import { parseSequence, fallbackSequence, asSend, firstNode, type Sequence } from './sequence.ts'
 import { aiAvailable } from './ai.ts'
-import { landingView, authView, dashboardView } from './views.ts'
+import { igLeadAvailable } from './iglead.ts'
+import * as src from './sourcing.ts'
+import { landingView, authView, dashboardView, sourceView, qualifyingView } from './views.ts'
 
 const isProd = process.env.NODE_ENV === 'production'
 const PORT = Number(process.env.PORT ?? 8080)
 
 const app = new Hono<{ Variables: { tenantId: string } }>()
+
+// --- landing page is a Webflow clone that loads external CDN assets; relax CSP for '/' only ---
+const LANDING_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://cdn.prod.website-files.com https://d3e54v103j8qbb.cloudfront.net https://ajax.googleapis.com https://unpkg.com https://cdn.jsdelivr.net",
+  "style-src 'self' 'unsafe-inline' https://cdn.prod.website-files.com https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net",
+  "font-src 'self' data: https://fonts.gstatic.com https://cdn.prod.website-files.com",
+  "img-src 'self' data: https://cdn.prod.website-files.com",
+  "connect-src 'self' https://cdn.prod.website-files.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+].join('; ')
+// runs before secureHeaders → its response phase fires last and overrides CSP on '/'
+app.use('*', async (c, next) => {
+  await next()
+  if (c.req.path === '/') c.header('Content-Security-Policy', LANDING_CSP)
+})
 
 // --- security headers ---
 app.use(
@@ -148,9 +167,78 @@ app.post('/logout', (c) => {
   return c.redirect('/')
 })
 
-// --- dashboard (auth) ---
+// --- the three product tabs (auth) ---
 app.get('/outbound', pageAuth, (c) => c.html(dashboardView(emailOf(c.get('tenantId')))))
+app.get('/source', pageAuth, (c) => c.html(sourceView(emailOf(c.get('tenantId')))))
+app.get('/qualifying', pageAuth, (c) => c.html(qualifyingView(emailOf(c.get('tenantId')))))
 app.get('/app', pageAuth, (c) => c.redirect('/outbound')) // back-compat
+
+// --- lead sourcing (Source tab): discover handles + find phones, fill a list ---
+app.get('/api/source/lists', apiAuth, (c) => {
+  const tid = c.get('tenantId')
+  const lists = camp.listLeadLists(tid).filter((l) => l.type === 'sourced')
+  return c.json({ ok: true, lists, hiker: src.hikerAvailable(), ai: igLeadAvailable() })
+})
+
+app.post('/api/source/lists', apiAuth, async (c) => {
+  try {
+    const b = (await c.req.json()) as { name?: string; niche?: string; hashtags?: string[] }
+    const niche = String(b.niche ?? b.name ?? '').trim()
+    if (!niche) return c.json({ ok: false, error: 'niche required' }, 400)
+    const tags = (b.hashtags ?? [])
+      .map((t) => String(t).trim().replace(/^#/, '').toLowerCase())
+      .filter(Boolean)
+    if (!tags.length) return c.json({ ok: false, error: 'at least one hashtag required' }, 400)
+    const id = camp.createSourcedList(c.get('tenantId'), (b.name || niche).trim(), src.defaultConfig(niche, tags))
+    return c.json({ ok: true, id })
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 400)
+  }
+})
+
+app.put('/api/source/lists/:id', apiAuth, async (c) => {
+  const tid = c.get('tenantId')
+  const id = Number(c.req.param('id'))
+  const list = camp.getLeadList(tid, id)
+  if (!list || list.type !== 'sourced') return c.json({ ok: false, error: 'not found' }, 404)
+  const cur = (JSON.parse(list.config).sourcing ?? {}) as src.SourcingConfig
+  const b = (await c.req.json()) as Partial<src.SourcingConfig>
+  const next: src.SourcingConfig = {
+    ...cur,
+    niche: b.niche != null ? String(b.niche).trim() : cur.niche,
+    hashtags: Array.isArray(b.hashtags)
+      ? b.hashtags.map((t) => String(t).trim().replace(/^#/, '').toLowerCase()).filter(Boolean)
+      : cur.hashtags,
+    instruction: b.instruction != null ? String(b.instruction) : cur.instruction,
+    targetPhones: Number.isFinite(b.targetPhones) ? Math.max(1, Math.min(500, Number(b.targetPhones))) : cur.targetPhones,
+    refreshDays: Number.isFinite(b.refreshDays) ? Math.max(0, Math.min(60, Number(b.refreshDays))) : cur.refreshDays,
+    minFollowers: Number.isFinite(b.minFollowers) ? Math.max(0, Number(b.minFollowers)) : cur.minFollowers,
+    maxFollowers: Number.isFinite(b.maxFollowers) ? Math.max(1, Number(b.maxFollowers)) : cur.maxFollowers,
+  }
+  camp.updateSourcing(tid, id, next)
+  return c.json({ ok: true })
+})
+
+app.post('/api/source/lists/:id/start', apiAuth, (c) => {
+  const tid = c.get('tenantId')
+  const id = Number(c.req.param('id'))
+  const list = camp.getLeadList(tid, id)
+  if (!list || list.type !== 'sourced') return c.json({ ok: false, error: 'not found' }, 404)
+  if (!src.hikerAvailable()) return c.json({ ok: false, error: 'HIKER_API_KEY not set on the server' }, 400)
+  void src.runSourcing(tid, id).catch(() => {})
+  return c.json({ ok: true })
+})
+
+app.get('/api/source/lists/:id/status', apiAuth, (c) => {
+  const st = src.sourcingStatus(c.get('tenantId'), Number(c.req.param('id')))
+  if (!st) return c.json({ ok: false, error: 'not found' }, 404)
+  return c.json({ ok: true, ...st })
+})
+
+app.delete('/api/source/lists/:id', apiAuth, (c) => {
+  camp.deleteLeadList(c.get('tenantId'), Number(c.req.param('id')))
+  return c.json({ ok: true })
+})
 
 // --- accounts (multiple WhatsApp numbers per tenant; baileys + cloud) ---
 app.get('/api/accounts', apiAuth, (c) => c.json({ ok: true, accounts: acct.listAccounts(c.get('tenantId')) }))
