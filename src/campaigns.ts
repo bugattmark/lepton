@@ -107,8 +107,8 @@ export async function syncStageOnReply(tenantId: string, contactId: number): Pro
 
   const jid = contact.phone.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
   const msgs = db
-    .prepare('SELECT direction, body FROM messages WHERE tenant_id = ? AND jid = ? ORDER BY created_at ASC')
-    .all(tenantId, jid) as { direction: string; body: string | null }[]
+    .prepare('SELECT direction, body FROM messages WHERE tenant_id = ? AND jid = ? ORDER BY created_at DESC LIMIT 50')
+    .all(tenantId, jid).reverse() as { direction: string; body: string | null }[]
   if (!msgs.length) return
   const transcript = msgs
     .filter((m) => m.body)
@@ -126,10 +126,11 @@ export async function syncStageOnReply(tenantId: string, contactId: number): Pro
   })
   if (!result) return
 
-  db.prepare('UPDATE contacts SET attio_synced_at = ? WHERE id = ?').run(Date.now(), contactId)
-
   const newHash = summaryHash(result.summary)
-  if (result.stage === contact.attio_synced_stage && newHash === contact.attio_summary_hash) return
+  if (result.stage === contact.attio_synced_stage && newHash === contact.attio_summary_hash) {
+    db.prepare('UPDATE contacts SET attio_synced_at = ? WHERE id = ?').run(Date.now(), contactId)
+    return
+  }
 
   const attio = await import('./attio.ts')
 
@@ -151,7 +152,8 @@ export async function syncStageOnReply(tenantId: string, contactId: number): Pro
     whatsapp_jid: jid,
   })
 
-  db.prepare('UPDATE contacts SET attio_synced_stage = ?, attio_summary_hash = ? WHERE id = ?').run(
+  db.prepare('UPDATE contacts SET attio_synced_at = ?, attio_synced_stage = ?, attio_summary_hash = ? WHERE id = ?').run(
+    Date.now(),
     result.stage,
     newHash,
     contactId,
