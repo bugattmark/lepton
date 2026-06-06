@@ -97,3 +97,54 @@ export async function personalizeOpener(input: PersonalizeInput): Promise<string
     return null
   }
 }
+
+export interface AssessInput {
+  transcript: string // "Us: ...\nThem: ..." formatted conversation
+  contactName: string | null
+  stageOptions: string[] // exact titles the model must pick from
+  businessDescription?: string | null // tenant's one-liner about their business
+}
+
+export interface AssessResult {
+  stage: string // one of stageOptions
+  summary: string // rolling conversation summary
+}
+
+export async function assessConversation(input: AssessInput): Promise<AssessResult | null> {
+  const key = process.env.ANTHROPIC_API_KEY
+  if (!key) return null
+
+  const stageList = input.stageOptions.map((s, i) => `${i + 1}. ${s}`).join('\n')
+  const bizCtx = input.businessDescription
+    ? `The sender's business: ${input.businessDescription}`
+    : 'This is B2B WhatsApp outbound sales outreach.'
+
+  const prompt =
+    `You are a sales analyst assessing a WhatsApp conversation between a business ("Us") and a lead ("Them").\n` +
+    `${bizCtx}\n\n` +
+    `CONVERSATION:\n${input.transcript}\n\n` +
+    (input.contactName ? `Contact name: ${input.contactName}\n\n` : '') +
+    `PIPELINE STAGES (pick exactly one):\n${stageList}\n\n` +
+    `Return a JSON object with two fields:\n` +
+    `- "stage": the exact stage title from the list above that best describes where this deal stands right now\n` +
+    `- "summary": a concise 1-3 sentence summary of the conversation state and what happened\n\n` +
+    `Return ONLY valid JSON, no markdown fences, no extra text.`
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, max_tokens: 400, messages: [{ role: 'user', content: prompt }] }),
+    })
+    if (!res.ok) return null
+    const j: any = await res.json()
+    const text = j?.content?.[0]?.text
+    if (typeof text !== 'string') return null
+    const parsed = JSON.parse(text.replace(/^```json\s*|```\s*$/g, '').trim())
+    if (typeof parsed?.stage !== 'string' || typeof parsed?.summary !== 'string') return null
+    if (!input.stageOptions.includes(parsed.stage)) return null
+    return { stage: parsed.stage, summary: parsed.summary }
+  } catch {
+    return null
+  }
+}
