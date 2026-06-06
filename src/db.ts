@@ -141,6 +141,21 @@ addColumn('contacts', 'last_messaged_at', 'INTEGER') // last successful WhatsApp
 addColumn('contacts', 'wa_registered', 'INTEGER') // 1/0 = number is/ isn't on WhatsApp (null = unchecked)
 addColumn('contacts', 'wa_checked_at', 'INTEGER') // when we last ran the onWhatsApp check (cache)
 
+// --- Instagram connection (creator authorizes their own account via Business Login) ---
+addColumn('tenants', 'ig_user_id', 'TEXT') // their Instagram professional account ID
+addColumn('tenants', 'ig_username', 'TEXT') // their @handle
+addColumn('tenants', 'ig_access_token', 'TEXT') // long-lived (60d) token, encrypted at rest
+addColumn('tenants', 'ig_token_expires_at', 'INTEGER') // epoch ms; refreshed lazily before expiry
+addColumn('tenants', 'ig_connected_at', 'INTEGER') // when they first connected
+
+// --- Google connection ("Continue with Google" + Gmail read/send) ---
+addColumn('tenants', 'google_email', 'TEXT') // the Google account email they connected
+addColumn('tenants', 'google_sub', 'TEXT') // stable Google user id (OIDC 'sub')
+addColumn('tenants', 'google_access_token', 'TEXT') // short-lived access token
+addColumn('tenants', 'google_refresh_token', 'TEXT') // long-lived refresh token (offline access)
+addColumn('tenants', 'google_token_expires_at', 'INTEGER') // epoch ms; refreshed lazily before expiry
+addColumn('tenants', 'google_connected_at', 'INTEGER') // when they first connected Google
+
 // The checklist: which WhatsApp numbers a campaign sends from (sends rotate across them).
 db.exec(`
   CREATE TABLE IF NOT EXISTS campaign_accounts (
@@ -162,6 +177,59 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_lead_lists_tenant ON lead_lists(tenant_id);
+
+  -- Brand directory: discoverable companies to pitch (the /dashboard/brands page).
+  -- One row per (tenant, brand). Contact + IG + socials live in JSON blobs so a source
+  -- can capture everything it returns without churning the schema.
+  CREATE TABLE IF NOT EXISTS brands (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id          TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name               TEXT NOT NULL,
+    logo_url           TEXT,
+    instagram_handle   TEXT,                  -- without '@'
+    instagram_url      TEXT,
+    followers          INTEGER,               -- IG follower count (normalized number)
+    website            TEXT,
+    email              TEXT,                  -- primary outreach email (enriched)
+    phone              TEXT,
+    description        TEXT,
+    location_city      TEXT,
+    location_region    TEXT,                  -- state / county
+    location_country   TEXT,
+    categories         TEXT,                  -- JSON: {main:[...], secondary:[...]}
+    socials            TEXT,                  -- JSON: {facebook,youtube,linkedin,tiktok,twitter,pinterest,...}
+    contacts           TEXT,                  -- JSON array of {name,role,email,phone,source}
+    enrichment         TEXT,                  -- JSON: raw Exa/research findings + provenance
+    source             TEXT NOT NULL DEFAULT 'manual', -- 'hiker'|'exa'|'bento'|'manual'|'csv'
+    source_ref         TEXT,                  -- external id/url at the source
+    status             TEXT NOT NULL DEFAULT 'new',     -- 'new'|'enriching'|'enriched'|'contacted'|'archived'
+    created_at         INTEGER NOT NULL,
+    updated_at         INTEGER NOT NULL,
+    UNIQUE(tenant_id, name)
+  );
+  CREATE INDEX IF NOT EXISTS idx_brands_tenant ON brands(tenant_id);
+  CREATE INDEX IF NOT EXISTS idx_brands_handle ON brands(tenant_id, instagram_handle);
+
+  -- Onboarding state, one row per tenant. The /start-onboarding wizard writes here;
+  -- the /dashboard reads it (shared contract). intake_* = the 2-step intake answers;
+  -- steps_done = JSON array of completed onboarding-step keys; completed_at set when finished.
+  CREATE TABLE IF NOT EXISTS onboarding (
+    tenant_id         TEXT PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+    name              TEXT,                 -- "Your Name"
+    roles             TEXT,                 -- JSON array: "Who are you?" (multi)
+    pitch_to          TEXT,                 -- "Who do you want to pitch to?" (free text)
+    journey           TEXT,                 -- "Where are you in your brand deal journey?" (single)
+    heard_from        TEXT,                 -- "How did you hear about us?" (single)
+    brand_categories  TEXT,                 -- JSON array: "What brand categories..." (multi)
+    link              TEXT,                 -- onboarding step: "Add a Link"
+    pitch_template    TEXT,                 -- onboarding step: pitch email body
+    followup_template TEXT,                 -- onboarding step: follow-up email body
+    steps_done        TEXT NOT NULL DEFAULT '[]', -- JSON array of completed step keys
+    pitches_sent      INTEGER NOT NULL DEFAULT 0,  -- progress toward "Send 10 Brand Pitches"
+    intake_done_at    INTEGER,              -- when the 2-step intake was submitted
+    completed_at      INTEGER,              -- when all onboarding steps finished (-> /dashboard)
+    updated_at        INTEGER NOT NULL
+  );
 `)
 
 export interface TenantRow {
@@ -171,6 +239,61 @@ export interface TenantRow {
   created_at: number
   attio_api_key?: string | null
   api_token?: string | null
+  ig_user_id?: string | null
+  ig_username?: string | null
+  ig_access_token?: string | null
+  ig_token_expires_at?: number | null
+  ig_connected_at?: number | null
+  google_email?: string | null
+  google_sub?: string | null
+  google_access_token?: string | null
+  google_refresh_token?: string | null
+  google_token_expires_at?: number | null
+  google_connected_at?: number | null
+}
+
+export interface OnboardingRow {
+  tenant_id: string
+  name: string | null
+  roles: string | null
+  pitch_to: string | null
+  journey: string | null
+  heard_from: string | null
+  brand_categories: string | null
+  link: string | null
+  pitch_template: string | null
+  followup_template: string | null
+  steps_done: string
+  pitches_sent: number
+  intake_done_at: number | null
+  completed_at: number | null
+  updated_at: number
+}
+
+export interface BrandRow {
+  id: number
+  tenant_id: string
+  name: string
+  logo_url: string | null
+  instagram_handle: string | null
+  instagram_url: string | null
+  followers: number | null
+  website: string | null
+  email: string | null
+  phone: string | null
+  description: string | null
+  location_city: string | null
+  location_region: string | null
+  location_country: string | null
+  categories: string | null // JSON {main:[],secondary:[]}
+  socials: string | null // JSON
+  contacts: string | null // JSON array
+  enrichment: string | null // JSON
+  source: string
+  source_ref: string | null
+  status: string
+  created_at: number
+  updated_at: number
 }
 
 export interface AccountRow {

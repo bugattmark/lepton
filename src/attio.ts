@@ -237,9 +237,12 @@ export interface PullResult {
 const DAY_MS = 86_400_000
 
 export interface AttioMapping {
-  phone: string // attribute slug holding the phone number
+  phone?: string // attribute slug holding the phone number (optional — blank when unmapped)
   name?: string // attribute slug holding the name (optional)
-  vars?: string[] // attribute slugs to expose as template variables
+  instagram?: string // attribute slug → our Instagram column
+  link?: string // attribute slug → our Link column
+  category?: string // attribute slug → our Category column
+  vars?: string[] // extra attribute slugs to expose as template variables
 }
 
 // --- auto-mapping: guess which attributes are phone/name/ig/link/email from type + slug/title,
@@ -350,8 +353,10 @@ export async function pullContacts(
 
   for (const rec of records) {
     const values = rec?.values ?? {}
-    const phone = digits(extract(values, mapping.phone, typeOf[mapping.phone] ?? 'phone-number'))
-    if (!phone) {
+    // phone is optional: if no attribute is mapped, import the row with a blank phone.
+    const phone = mapping.phone ? digits(extract(values, mapping.phone, typeOf[mapping.phone] ?? 'phone-number')) : ''
+    if (mapping.phone && !phone) {
+      // a phone WAS mapped but this record has none → skip it
       skipped.noPhone++
       continue
     }
@@ -375,6 +380,14 @@ export async function pullContacts(
       const val = extract(values, slug, typeOf[slug] ?? 'text')
       if (val) vars[slug] = val
     }
+    // explicit column slots → canonical keys the list-preview/table reads
+    const slot = (slug?: string) => (slug ? extract(values, slug, typeOf[slug] ?? 'text') : '')
+    const ig = slot(mapping.instagram)
+    if (ig) vars.instagram_handle = String(ig).replace(/^@/, '')
+    const link = slot(mapping.link)
+    if (link) vars.event_link = link
+    const cat = slot(mapping.category)
+    if (cat) vars.category = cat
     // convenience name parts when the name attribute is a personal-name
     if (mapping.name && typeOf[mapping.name] === 'personal-name') {
       const nv = Array.isArray(values[mapping.name]) ? values[mapping.name][0] : undefined

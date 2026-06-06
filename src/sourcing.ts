@@ -24,6 +24,7 @@ export type SourcingConfig = {
   niche: string // human label, e.g. "London supper clubs"
   hashtags: string[] // discovery hashtags, e.g. ["supperclublondon","londonsupperclub"]
   instruction: string // editable phone-finder prompt (passed through to the lead query context)
+  targetHandles: number // how many candidate handles to scan before stopping (default 40)
   targetPhones: number // stop once this many leads have a phone (default 10)
   refreshDays: number // re-run cadence (default 2)
   minFollowers: number // filter floor (default 500)
@@ -44,6 +45,7 @@ export function defaultConfig(niche: string, hashtags: string[]): SourcingConfig
     niche,
     hashtags,
     instruction: DEFAULT_INSTRUCTION,
+    targetHandles: 40,
     targetPhones: 10,
     refreshDays: 2,
     minFollowers: 500,
@@ -89,6 +91,7 @@ export type Enriched = {
   category: string
   publicPhone: string | null
   externalUrl: string | null
+  bio: string
 }
 
 // HikerAPI by-username → the fields we filter and seed on.
@@ -104,6 +107,7 @@ export async function enrichHandle(username: string): Promise<Enriched | null> {
     category: u.category ?? '',
     publicPhone: u.public_phone_number || u.contact_phone_number || null,
     externalUrl: u.external_url || null,
+    bio: u.biography ?? '',
   }
 }
 
@@ -164,9 +168,11 @@ export async function runSourcing(tenantId: string, listId: number): Promise<voi
   try {
     for (const tag of cfg.hashtags) {
       if (withPhone() >= cfg.targetPhones) break
-      const candidates = await discoverByHashtag(tag, 40)
+      if (cfg.scanned >= cfg.targetHandles) break
+      const candidates = await discoverByHashtag(tag, cfg.targetHandles)
       for (const username of candidates) {
         if (withPhone() >= cfg.targetPhones) break
+        if (cfg.scanned >= cfg.targetHandles) break
         if (have.has(username)) continue
         have.add(username)
         cfg.scanned++
@@ -226,10 +232,12 @@ export function sourcingStatus(tenantId: string, listId: number) {
     scanned: c.sourcing.scanned,
     found,
     target: c.sourcing.targetPhones,
+    targetHandles: c.sourcing.targetHandles,
     config: {
       niche: c.sourcing.niche,
       hashtags: c.sourcing.hashtags,
       instruction: c.sourcing.instruction,
+      targetHandles: c.sourcing.targetHandles,
       targetPhones: c.sourcing.targetPhones,
       refreshDays: c.sourcing.refreshDays,
       minFollowers: c.sourcing.minFollowers,
