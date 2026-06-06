@@ -136,6 +136,11 @@ addColumn('campaign_contacts', 'account_id', 'TEXT') // which number sends THIS 
 addColumn('campaign_contacts', 'node_id', 'TEXT') // where this lead currently sits in the sequence
 addColumn('campaign_contacts', 'next_due_at', 'INTEGER') // earliest time to act on this lead (wait blocks)
 
+// --- suppression + is-on-WhatsApp gate ---
+addColumn('contacts', 'last_messaged_at', 'INTEGER') // last successful WhatsApp send (10-day suppression window)
+addColumn('contacts', 'wa_registered', 'INTEGER') // 1/0 = number is/ isn't on WhatsApp (null = unchecked)
+addColumn('contacts', 'wa_checked_at', 'INTEGER') // when we last ran the onWhatsApp check (cache)
+
 // The checklist: which WhatsApp numbers a campaign sends from (sends rotate across them).
 db.exec(`
   CREATE TABLE IF NOT EXISTS campaign_accounts (
@@ -157,6 +162,38 @@ db.exec(`
     created_at INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_lead_lists_tenant ON lead_lists(tenant_id);
+
+  -- Brand directory: discoverable companies to pitch (the /dashboard/brands page).
+  -- One row per (tenant, brand). Contact + IG + socials live in JSON blobs so a source
+  -- can capture everything it returns without churning the schema.
+  CREATE TABLE IF NOT EXISTS brands (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id          TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name               TEXT NOT NULL,
+    logo_url           TEXT,
+    instagram_handle   TEXT,                  -- without '@'
+    instagram_url      TEXT,
+    followers          INTEGER,               -- IG follower count (normalized number)
+    website            TEXT,
+    email              TEXT,                  -- primary outreach email (enriched)
+    phone              TEXT,
+    description        TEXT,
+    location_city      TEXT,
+    location_region    TEXT,                  -- state / county
+    location_country   TEXT,
+    categories         TEXT,                  -- JSON: {main:[...], secondary:[...]}
+    socials            TEXT,                  -- JSON: {facebook,youtube,linkedin,tiktok,twitter,pinterest,...}
+    contacts           TEXT,                  -- JSON array of {name,role,email,phone,source}
+    enrichment         TEXT,                  -- JSON: raw Exa/research findings + provenance
+    source             TEXT NOT NULL DEFAULT 'manual', -- 'hiker'|'exa'|'bento'|'manual'|'csv'
+    source_ref         TEXT,                  -- external id/url at the source
+    status             TEXT NOT NULL DEFAULT 'new',     -- 'new'|'enriching'|'enriched'|'contacted'|'archived'
+    created_at         INTEGER NOT NULL,
+    updated_at         INTEGER NOT NULL,
+    UNIQUE(tenant_id, name)
+  );
+  CREATE INDEX IF NOT EXISTS idx_brands_tenant ON brands(tenant_id);
+  CREATE INDEX IF NOT EXISTS idx_brands_handle ON brands(tenant_id, instagram_handle);
 `)
 
 export interface TenantRow {
@@ -166,6 +203,32 @@ export interface TenantRow {
   created_at: number
   attio_api_key?: string | null
   api_token?: string | null
+}
+
+export interface BrandRow {
+  id: number
+  tenant_id: string
+  name: string
+  logo_url: string | null
+  instagram_handle: string | null
+  instagram_url: string | null
+  followers: number | null
+  website: string | null
+  email: string | null
+  phone: string | null
+  description: string | null
+  location_city: string | null
+  location_region: string | null
+  location_country: string | null
+  categories: string | null // JSON {main:[],secondary:[]}
+  socials: string | null // JSON
+  contacts: string | null // JSON array
+  enrichment: string | null // JSON
+  source: string
+  source_ref: string | null
+  status: string
+  created_at: number
+  updated_at: number
 }
 
 export interface AccountRow {
@@ -208,6 +271,9 @@ export interface ContactRow {
   instagram_handle: string | null
   event_link: string | null
   category: string | null
+  last_messaged_at: number | null
+  wa_registered: number | null
+  wa_checked_at: number | null
 }
 
 export interface CampaignRow {

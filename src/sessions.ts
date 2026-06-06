@@ -116,6 +116,19 @@ export async function baileysSend(accountId: string, to: string, text: string): 
   return sent?.key?.id ?? undefined
 }
 
+// Is this number registered on WhatsApp? Returns true/false, or null when we can't tell
+// (account not connected / not a Baileys socket) — callers treat null as "don't block".
+export async function isOnWhatsApp(accountId: string, phone: string): Promise<boolean | null> {
+  const s = sessions.get(accountId)
+  if (!s?.sock || s.status !== 'connected') return null
+  try {
+    const [res] = await s.sock.onWhatsApp(toJid(phone))
+    return !!res?.exists
+  } catch {
+    return null // network blip — don't wrongly mark the contact unreachable
+  }
+}
+
 // A reply arrived on this account. Reply always stops further sends to that lead (the
 // WhatsApp-native pattern + the canvas "If reply" branch reads this), and "STOP" opts out.
 function handleInbound(tenantId: string, accountId: string, jid: string, body: string | null): void {
