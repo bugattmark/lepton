@@ -36,16 +36,15 @@ export type PhoneResult = {
 }
 
 // Build the lead-shaped question. Deliberately terse — mirrors what a human types into
-// ChatGPT — plus one precision clause that makes the model reject venue/ticketing lines
-// (without it, `high` effort over-collects box-office numbers; see RESULTS.md).
+// ChatGPT. The bare prompt (no venue-rejection clause) is the benchmark's best-recall config:
+// the reject-venue/ticketing wording over-rejected legitimate landlines and cut recall
+// (5.5: 44%→35%). Precision is handled afterward by normalizeUk() instead. See RESULTS.md.
 function query(l: Lead): string {
   const who = (l.handle && '@' + l.handle.replace(/^@/, '')) || l.website || l.name || ''
   const ctx = [l.name && l.name, l.area && l.area].filter(Boolean).join(', ')
   return (
     `can u find phone number for these guys: ${who}${ctx ? ` (${ctx})` : ''}? ` +
     `output phone number in the format +44. mobile phone num preferred. ` +
-    `only give THEIR OWN number — reject any venue, box-office, ticketing ` +
-    `(eventbrite/dice/citizen ticket), or supplier line. ` +
     `if none confidently found, output none.`
   )
 }
