@@ -150,4 +150,8 @@ function handleInbound(tenantId: string, accountId: string, jid: string, body: s
   void import('./campaigns.ts')
     .then((m) => m.writebackNote(tenantId, contact.id, body && OPT_OUT.test(body) ? 'Opted out (STOP) on WhatsApp' : 'Replied on WhatsApp'))
     .catch(() => {})
+
+  void import('./campaigns.ts')
+    .then((m) => m.syncStageOnReply(tenantId, contact.id))
+    .catch(() => {})
 }
