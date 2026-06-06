@@ -24,6 +24,8 @@ import { parseSequence, fallbackSequence, asSend, firstNode, type Sequence } fro
 import { aiAvailable } from './ai.ts'
 import { igLeadAvailable } from './iglead.ts'
 import * as src from './sourcing.ts'
+import * as dedupe from './dedupe.ts'
+import * as qual from './qualify.ts'
 import { landingView, authView, dashboardView, sourceView, qualifyingView } from './views.ts'
 
 const isProd = process.env.NODE_ENV === 'production'
@@ -182,14 +184,17 @@ app.get('/api/source/lists', apiAuth, (c) => {
 
 app.post('/api/source/lists', apiAuth, async (c) => {
   try {
-    const b = (await c.req.json()) as { name?: string; niche?: string; hashtags?: string[] }
+    const b = (await c.req.json()) as { name?: string; niche?: string; hashtags?: string[]; targetHandles?: number; targetPhones?: number }
     const niche = String(b.niche ?? b.name ?? '').trim()
     if (!niche) return c.json({ ok: false, error: 'niche required' }, 400)
     const tags = (b.hashtags ?? [])
       .map((t) => String(t).trim().replace(/^#/, '').toLowerCase())
       .filter(Boolean)
     if (!tags.length) return c.json({ ok: false, error: 'at least one hashtag required' }, 400)
-    const id = camp.createSourcedList(c.get('tenantId'), (b.name || niche).trim(), src.defaultConfig(niche, tags))
+    const cfg = src.defaultConfig(niche, tags)
+    if (Number.isFinite(b.targetHandles)) cfg.targetHandles = Math.max(1, Math.min(2000, Number(b.targetHandles)))
+    if (Number.isFinite(b.targetPhones)) cfg.targetPhones = Math.max(1, Math.min(500, Number(b.targetPhones)))
+    const id = camp.createSourcedList(c.get('tenantId'), (b.name || niche).trim(), cfg)
     return c.json({ ok: true, id })
   } catch (e) {
     return c.json({ ok: false, error: (e as Error).message }, 400)
@@ -210,6 +215,7 @@ app.put('/api/source/lists/:id', apiAuth, async (c) => {
       ? b.hashtags.map((t) => String(t).trim().replace(/^#/, '').toLowerCase()).filter(Boolean)
       : cur.hashtags,
     instruction: b.instruction != null ? String(b.instruction) : cur.instruction,
+    targetHandles: Number.isFinite(b.targetHandles) ? Math.max(1, Math.min(2000, Number(b.targetHandles))) : cur.targetHandles,
     targetPhones: Number.isFinite(b.targetPhones) ? Math.max(1, Math.min(500, Number(b.targetPhones))) : cur.targetPhones,
     refreshDays: Number.isFinite(b.refreshDays) ? Math.max(0, Math.min(60, Number(b.refreshDays))) : cur.refreshDays,
     minFollowers: Number.isFinite(b.minFollowers) ? Math.max(0, Number(b.minFollowers)) : cur.minFollowers,
@@ -238,6 +244,141 @@ app.get('/api/source/lists/:id/status', apiAuth, (c) => {
 app.delete('/api/source/lists/:id', apiAuth, (c) => {
   camp.deleteLeadList(c.get('tenantId'), Number(c.req.param('id')))
   return c.json({ ok: true })
+})
+
+// Create a blank, manually-fillable list with an auto name ("New list N").
+app.post('/api/source/lists/blank', apiAuth, (c) => {
+  const tid = c.get('tenantId')
+  const name = camp.nextDefaultListName(tid)
+  const id = camp.createSourcedList(tid, name, src.defaultConfig('', []))
+  return c.json({ ok: true, id, name })
+})
+
+const rowFromBody = (b: Record<string, unknown>) => ({
+  name: (b.name as string)?.trim() || null,
+  phone: String((b.phone as string) ?? '').trim(),
+  instagram_handle: (b.instagram_handle as string)?.trim().replace(/^@/, '') || null,
+  event_link: (b.event_link as string)?.trim() || null,
+  category: (b.category as string)?.trim() || null,
+  source: 'manual',
+})
+
+// Manual row CRUD on a list's table.
+app.post('/api/source/lists/:id/rows', apiAuth, async (c) => {
+  const b = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
+  const ok = camp.addListRow(c.get('tenantId'), Number(c.req.param('id')), rowFromBody(b))
+  return c.json({ ok })
+})
+app.put('/api/source/lists/:id/rows/:idx', apiAuth, async (c) => {
+  const b = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
+  const ok = camp.updateListRow(c.get('tenantId'), Number(c.req.param('id')), Number(c.req.param('idx')), rowFromBody(b))
+  return c.json({ ok })
+})
+app.delete('/api/source/lists/:id/rows/:idx', apiAuth, (c) => {
+  const ok = camp.deleteListRow(c.get('tenantId'), Number(c.req.param('id')), Number(c.req.param('idx')))
+  return c.json({ ok })
+})
+
+// AI dedupe + cleanup pass over a list's table (gpt-5.4, strict schema). Caps at 300 rows/call.
+app.post('/api/source/lists/:id/dedupe', apiAuth, async (c) => {
+  if (!dedupe.dedupeAvailable()) return c.json({ ok: false, error: 'OPENAI_API_KEY not set on the server' }, 400)
+  const tid = c.get('tenantId')
+  const id = Number(c.req.param('id'))
+  const rows = camp.getListRows(tid, id)
+  if (!rows.length) return c.json({ ok: true, removed: 0, modified: 0, note: 'list is empty' })
+  const CAP = 300
+  const head = rows.slice(0, CAP)
+  const tail = rows.slice(CAP)
+  try {
+    const ops = await dedupe.dedupe(head.map((r) => ({
+      instagram_handle: r.instagram_handle ?? null,
+      name: r.name ?? null,
+      phone: r.phone || null,
+      event_link: r.event_link ?? null,
+      category: r.category ?? null,
+    })))
+    const applied = dedupe.applyOps(head as Record<string, unknown>[] as never, ops)
+    camp.setListRows(tid, id, [...(applied.rows as unknown as typeof rows), ...tail])
+    return c.json({ ok: true, removed: applied.removed, modified: applied.modified, capped: rows.length > CAP })
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 400)
+  }
+})
+
+// Import from Attio → ADD the pulled rows onto an existing list (materialized once, not a live list).
+app.post('/api/source/lists/:id/import-attio', apiAuth, async (c) => {
+  const key = attioKey(c)
+  if (!key) return c.json({ ok: false, error: 'connect Attio first' }, 400)
+  const id = Number(c.req.param('id'))
+  const list = camp.getLeadList(c.get('tenantId'), id)
+  if (!list) return c.json({ ok: false, error: 'list not found' }, 404)
+  try {
+    const b = (await c.req.json()) as { object?: string; listId?: string; mapping?: attio.AttioMapping }
+    if (!b.object || !b.mapping) return c.json({ ok: false, error: 'object and mapping required' }, 400)
+    const pull = await attio.pullContacts(key, { object: b.object, listId: b.listId || undefined, mapping: b.mapping })
+    const rows = pull.contacts.map((ct) => ({
+      name: ct.name,
+      phone: ct.phone || '',
+      instagram_handle: ct.vars.instagram_handle ?? null,
+      event_link: ct.vars.event_link ?? null,
+      category: ct.vars.category ?? null,
+      source: 'attio',
+      vars: ct.vars,
+    }))
+    const added = camp.addListRows(c.get('tenantId'), id, rows)
+    return c.json({ ok: true, added, total: pull.total, skippedNoPhone: pull.skipped.noPhone })
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 400)
+  }
+})
+
+// --- lead qualifying (Qualifying tab): score a list's rows against an ICP description ---
+// Lists that can be qualified = anything with stored rows (sourced + csv/imported).
+app.get('/api/qualify/lists', apiAuth, (c) => {
+  const lists = camp.listLeadLists(c.get('tenantId')).filter((l) => l.type === 'sourced' || l.type === 'csv')
+  return c.json({ ok: true, lists, ai: qual.qualifyAvailable() })
+})
+
+// Snapshot: progress, scored rows, tier counts, current criteria.
+app.get('/api/qualify/lists/:id/status', apiAuth, (c) => {
+  const st = qual.qualifyStatus(c.get('tenantId'), Number(c.req.param('id')))
+  if (!st) return c.json({ ok: false, error: 'not found' }, 404)
+  return c.json({ ok: true, ...st })
+})
+
+// Save the edited criteria prompt without running.
+app.put('/api/qualify/lists/:id', apiAuth, async (c) => {
+  const b = (await c.req.json().catch(() => ({}))) as { criteria?: string }
+  const ok = qual.saveCriteria(c.get('tenantId'), Number(c.req.param('id')), String(b.criteria ?? '').trim())
+  return c.json({ ok })
+})
+
+// Run the qualifier over the whole list (background). Persists criteria first if provided.
+app.post('/api/qualify/lists/:id/run', apiAuth, async (c) => {
+  if (!qual.qualifyAvailable()) return c.json({ ok: false, error: 'OPENAI_API_KEY not set on the server' }, 400)
+  const tid = c.get('tenantId')
+  const id = Number(c.req.param('id'))
+  const b = (await c.req.json().catch(() => ({}))) as { criteria?: string }
+  if (typeof b.criteria === 'string' && b.criteria.trim()) qual.saveCriteria(tid, id, b.criteria.trim())
+  if (!camp.getLeadList(tid, id)) return c.json({ ok: false, error: 'not found' }, 404)
+  void qual.runQualify(tid, id).catch(() => {})
+  return c.json({ ok: true })
+})
+
+// Spin off a NEW csv list containing only the qualified rows (score >= min). `min`: 70 hot, 40 warm+.
+app.post('/api/qualify/lists/:id/spinoff', apiAuth, async (c) => {
+  const tid = c.get('tenantId')
+  const id = Number(c.req.param('id'))
+  const list = camp.getLeadList(tid, id)
+  if (!list) return c.json({ ok: false, error: 'not found' }, 404)
+  const b = (await c.req.json().catch(() => ({}))) as { min?: number; name?: string }
+  const min = Number.isFinite(b.min) ? Math.max(0, Math.min(100, Number(b.min))) : 70
+  const rows = qual.qualifiedRows(tid, id, min)
+  if (!rows.length) return c.json({ ok: false, error: 'no leads at or above that score' }, 400)
+  const tierName = min >= 70 ? 'hot' : min >= 40 ? 'warm+' : 'scored'
+  const name = (b.name && String(b.name).trim()) || `${list.name} — ${tierName} (${rows.length})`
+  const newId = camp.createCsvList(tid, name, rows)
+  return c.json({ ok: true, id: newId, name, count: rows.length })
 })
 
 // --- accounts (multiple WhatsApp numbers per tenant; baileys + cloud) ---
@@ -363,6 +504,11 @@ app.post('/api/attio/connect', apiAuth, async (c) => {
   }
 })
 
+app.post('/api/attio/disconnect', apiAuth, (c) => {
+  camp.clearAttioKey(c.get('tenantId'))
+  return c.json({ ok: true })
+})
+
 const attioKey = (c: import('hono').Context<{ Variables: { tenantId: string } }>) => camp.getAttioKey(c.get('tenantId'))
 
 app.get('/api/attio/objects', apiAuth, async (c) => {
@@ -416,7 +562,7 @@ app.post('/api/lists/attio', apiAuth, async (c) => {
   if (!key) return c.json({ ok: false, error: 'connect Attio first' }, 400)
   try {
     const b = (await c.req.json()) as { name?: string; object?: string; listId?: string; mapping?: attio.AttioMapping }
-    if (!b.object || !b.mapping?.phone) return c.json({ ok: false, error: 'object and phone mapping required' }, 400)
+    if (!b.object || !b.mapping) return c.json({ ok: false, error: 'object and mapping required' }, 400)
     const id = camp.createAttioList(c.get('tenantId'), (b.name || 'Attio list').trim(), {
       object: b.object,
       listId: b.listId || undefined,

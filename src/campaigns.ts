@@ -10,6 +10,9 @@ import { getPolicy } from './policy.ts'
 export function saveAttioKey(tenantId: string, key: string): void {
   db.prepare('UPDATE tenants SET attio_api_key = ? WHERE id = ?').run(enc(key), tenantId)
 }
+export function clearAttioKey(tenantId: string): void {
+  db.prepare('UPDATE tenants SET attio_api_key = NULL WHERE id = ?').run(tenantId)
+}
 export function getAttioKey(tenantId: string): string | null {
   const raw = (db.prepare('SELECT attio_api_key FROM tenants WHERE id = ?').get(tenantId) as { attio_api_key: string | null })
     ?.attio_api_key
@@ -298,6 +301,78 @@ export function createSourcedList(tenantId: string, name: string, sourcing: unkn
     .run(tenantId, name, JSON.stringify({ rows: [], sourcing }), Date.now())
   return Number(info.lastInsertRowid)
 }
+// Next default name for a manually-created list: "New list 1", "New list 2", …
+export function nextDefaultListName(tenantId: string): string {
+  const rows = db.prepare('SELECT name FROM lead_lists WHERE tenant_id = ?').all(tenantId) as { name: string }[]
+  let max = 0
+  for (const r of rows) {
+    const m = /^New list (\d+)$/.exec(r.name ?? '')
+    if (m) max = Math.max(max, Number(m[1]))
+  }
+  return `New list ${max + 1}`
+}
+
+// Append a manually-entered row to a sourced/csv list's stored rows.
+export function addListRow(tenantId: string, id: number, row: UpsertRow): boolean {
+  const list = getLeadList(tenantId, id)
+  if (!list || (list.type !== 'sourced' && list.type !== 'csv')) return false
+  const cfg = JSON.parse(list.config)
+  cfg.rows = Array.isArray(cfg.rows) ? cfg.rows : []
+  cfg.rows.push(row)
+  db.prepare('UPDATE lead_lists SET config = ? WHERE id = ? AND tenant_id = ?').run(JSON.stringify(cfg), id, tenantId)
+  return true
+}
+
+// Update a row in place (manual inline editing).
+export function updateListRow(tenantId: string, id: number, idx: number, patch: Partial<UpsertRow>): boolean {
+  const list = getLeadList(tenantId, id)
+  if (!list || (list.type !== 'sourced' && list.type !== 'csv')) return false
+  const cfg = JSON.parse(list.config)
+  if (!Array.isArray(cfg.rows) || idx < 0 || idx >= cfg.rows.length) return false
+  cfg.rows[idx] = { ...cfg.rows[idx], ...patch }
+  db.prepare('UPDATE lead_lists SET config = ? WHERE id = ? AND tenant_id = ?').run(JSON.stringify(cfg), id, tenantId)
+  return true
+}
+
+// Overwrite a list's rows wholesale (used by the dedupe agent to persist its result).
+export function setListRows(tenantId: string, id: number, rows: UpsertRow[]): boolean {
+  const list = getLeadList(tenantId, id)
+  if (!list || (list.type !== 'sourced' && list.type !== 'csv')) return false
+  const cfg = JSON.parse(list.config)
+  cfg.rows = rows
+  db.prepare('UPDATE lead_lists SET config = ? WHERE id = ? AND tenant_id = ?').run(JSON.stringify(cfg), id, tenantId)
+  return true
+}
+
+// Read a list's raw stored rows.
+export function getListRows(tenantId: string, id: number): UpsertRow[] {
+  const list = getLeadList(tenantId, id)
+  if (!list) return []
+  try { return (JSON.parse(list.config).rows as UpsertRow[]) ?? [] } catch { return [] }
+}
+
+// Append many rows at once (used by Attio import → materialize onto a list).
+export function addListRows(tenantId: string, id: number, rows: UpsertRow[]): number {
+  const list = getLeadList(tenantId, id)
+  if (!list || (list.type !== 'sourced' && list.type !== 'csv')) return 0
+  const cfg = JSON.parse(list.config)
+  cfg.rows = Array.isArray(cfg.rows) ? cfg.rows : []
+  cfg.rows.push(...rows)
+  db.prepare('UPDATE lead_lists SET config = ? WHERE id = ? AND tenant_id = ?').run(JSON.stringify(cfg), id, tenantId)
+  return rows.length
+}
+
+// Remove a row by its index in the stored rows array.
+export function deleteListRow(tenantId: string, id: number, idx: number): boolean {
+  const list = getLeadList(tenantId, id)
+  if (!list || (list.type !== 'sourced' && list.type !== 'csv')) return false
+  const cfg = JSON.parse(list.config)
+  if (!Array.isArray(cfg.rows) || idx < 0 || idx >= cfg.rows.length) return false
+  cfg.rows.splice(idx, 1)
+  db.prepare('UPDATE lead_lists SET config = ? WHERE id = ? AND tenant_id = ?').run(JSON.stringify(cfg), id, tenantId)
+  return true
+}
+
 export function updateSourcing(tenantId: string, id: number, sourcing: unknown): void {
   const list = getLeadList(tenantId, id)
   if (!list || list.type !== 'sourced') return

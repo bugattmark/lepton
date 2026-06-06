@@ -157,66 +157,84 @@ export function sourceView(email: string): string {
   return page(
     'Source — Lepton',
     shellNav(email, 'source') +
-      `<div class="wrap" style="max-width:1040px">
+      `<div class="wrap" style="max-width:1320px">
        <div class="flex"><h3>Source leads</h3>
-         <select id="listSel" style="width:300px"></select>
-       </div>
-       <p class="hint">Discover the Instagram handles of people running events, then auto-find their WhatsApp number with gpt-5.4. Or import rows from Attio.</p>
-
-       <!-- create / import row -->
-       <div class="row2 mt" style="align-items:stretch;gap:14px">
-         <!-- NEW SOURCED LIST -->
-         <div class="card" style="flex:1">
-           <h4 style="margin-top:0">New Instagram source</h4>
-           <label>Niche label</label><input id="nNiche" placeholder="e.g. London supper clubs">
-           <label class="mt">Hashtags to search <span class="hint">(comma-separated, no #)</span></label>
-           <input id="nTags" placeholder="supperclublondon, londonsupperclub">
-           <button class="btn sm mt" id="nCreate">Create source</button>
-           <p class="mono mt" id="nMsg"></p>
+         <div class="row2">
+           <label class="hint" for="listSel" style="margin:0">List</label>
+           <select id="listSel" style="width:260px"></select>
+           <button class="btn sm" id="newList">+ New list</button>
          </div>
-         <!-- IMPORT FROM ATTIO -->
+       </div>
+       <p class="hint">A list is a container of leads. Create one with <b>+ New list</b>, then fill it three ways: add rows by hand, <b>Source from Instagram</b> (HikerAPI), or <b>Import from Attio</b>. Lists persist and are shared with Outbound. <span id="hikerNote"></span></p>
+
+       <!-- FILL THE CURRENT LIST: Attio (left) + Source from Instagram (right) -->
+       <div class="row2 mt" style="align-items:stretch;gap:14px">
+         <!-- LEFT: Import from Attio -->
          <div class="card" style="flex:1">
            <h4 style="margin-top:0">Import from Attio</h4>
-           <div id="atNote" class="hint">Connect Attio in Outbound → connections first.</div>
+           <!-- not connected: paste key inline -->
+           <div id="atConnect" style="display:none">
+             <div class="hint">Connect Attio to import records. Paste a workspace API key (Attio → Settings → Developers).</div>
+             <input id="atKey" type="password" placeholder="Attio API key" class="mt">
+             <button class="btn sm mt" id="atConnectBtn">Connect Attio</button>
+             <p class="mono mt" id="atConnMsg"></p>
+           </div>
+           <!-- connected: pick object → map columns → import -->
+           <div id="atConnected" class="flex" style="display:none;align-items:center;margin-bottom:6px">
+             <span class="mono" style="color:var(--green,#1f9d63)">● Attio connected</span>
+             <button class="x" id="atDisconnect" title="remove key">✕ remove key</button>
+           </div>
            <div id="atBox" style="display:none">
-             <label>Object type</label><select id="atObj"></select>
-             <div class="hint mt">Map Attio attributes → our columns:</div>
-             <div class="cfg3 mt">
-               <div><label>Phone</label><select id="mapPhone"></select></div>
-               <div><label>Name</label><select id="mapName"></select></div>
-               <div><label>IG handle</label><select id="mapIg"></select></div>
+             <label>1. Object type</label><select id="atObj"></select>
+             <label class="mt">From list <span class="hint">(optional — pick a subset instead of the whole object)</span></label><select id="atList"></select>
+             <div class="hint mt">2. Map each table column → an Attio attribute:</div>
+             <div id="atMap" class="mt">
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Instagram</span><select id="mapIg" style="flex:1"></select></div>
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Name</span><select id="mapName" style="flex:1"></select></div>
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Phone</span><select id="mapPhone" style="flex:1"></select></div>
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Link</span><select id="mapLink" style="flex:1"></select></div>
+               <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="width:96px;color:var(--mut);font-size:13px;flex:0 0 auto">Category</span><select id="mapCat" style="flex:1"></select></div>
              </div>
-             <div class="cfg3 mt"><div><label>Link</label><select id="mapLink"></select></div><div><label>Category</label><select id="mapCat"></select></div><div></div></div>
-             <label class="mt">List name</label><input id="atName" placeholder="e.g. Attio – Prospects">
-             <button class="btn sm mt" id="atImport">Import all rows</button>
+             <button class="btn sm mt" id="atImport">Import rows → add to current list</button>
+             <p class="hint" style="margin-top:6px">Adds the pulled rows onto the list selected above. If none is selected, a new list is created.</p>
              <p class="mono mt" id="atMsg"></p>
            </div>
          </div>
-       </div>
-
-       <!-- SELECTED SOURCE: config + status -->
-       <div id="cfgCard" class="card mt" style="display:none">
-         <div class="flex"><h4 style="margin:0" id="cfgTitle">Source</h4>
+         <!-- RIGHT: Source from Instagram (per-list config) -->
+         <div id="cfgCard" class="card" style="flex:1;display:none">
+         <div class="flex"><h4 style="margin:0" id="cfgTitle">List</h4>
            <div class="row2"><span class="mono" id="srcStatus"></span>
              <button class="btn ghost sm" id="srcSave">Save</button>
              <button class="btn sm" id="srcStart">Turn on</button>
              <button class="x" id="srcDel">delete</button>
            </div>
          </div>
+         <h5 style="margin:14px 0 2px">Source from Instagram</h5>
+         <p class="hint" style="margin:0 0 8px">HikerAPI searches the hashtags below and returns the <b>handles</b> posting under them. For each handle we pull its profile (followers, bio link, any public number), keep those in your follower range, then gpt-5.4 web-searches the owner's WhatsApp number. <b>Handles to scan</b> caps how many to examine; <b>Numbers to add</b> stops once that many have a phone. Hit <b>Turn on</b> and rows fill the table below.</p>
          <div class="cfg3 mt">
-           <div><label>Phone numbers wanted</label><input type="number" id="cTarget" value="10"><div class="hint">stop once this many have a number</div></div>
+           <div><label>Handles to scan</label><input type="number" id="cHandles" value="40" min="1"><div class="hint">candidates to examine before stopping</div></div>
+           <div><label>Numbers to add</label><input type="number" id="cTarget" value="10" min="1"><div class="hint">stop once this many have a number</div></div>
            <div><label>Refresh every (days)</label><input type="number" id="cRefresh" value="2"><div class="hint">re-run cadence</div></div>
+         </div>
+         <div class="cfg3 mt">
            <div><label>Followers</label><div class="row2"><input type="number" id="cMin" value="500" style="width:70px"><span class="hint">to</span><input type="number" id="cMax" value="100000" style="width:80px"></div></div>
+           <div></div><div></div>
          </div>
          <label class="mt">Hashtags <span class="hint">(comma-separated)</span></label><input id="cTags">
-         <label class="mt">Phone-finder instruction <span class="hint">(gpt-5.4 prompt — editable)</span></label>
-         <textarea id="cInstr" rows="3"></textarea>
+         <label class="row2 mt" style="margin:12px 0 0;cursor:pointer;align-items:center"><input type="checkbox" id="cInstrToggle" style="width:auto"> <span>Phone-finder instruction <span class="hint">(advanced — gpt-5.4 prompt)</span></span></label>
+         <div id="cInstrBox" style="display:none;margin-top:6px"><textarea id="cInstr" rows="3"></textarea></div>
+       </div>
        </div>
 
        <!-- LIVE TABLE -->
        <div id="tblWrap" class="mt" style="display:none">
          <div class="muted" style="font-size:12px" id="tblMeta"></div>
-         <table class="tbl" id="srcTbl"></table>
+         <div style="overflow-x:auto"><table class="tbl" id="srcTbl" style="width:100%"></table></div>
+         <div id="addRow" class="row2 mt" style="display:none;gap:10px">
+           <button class="btn ghost sm" id="addRowBtn">+ Add row</button>
+           <button class="btn ghost sm" id="dedupeBtn" title="AI dedupe + cleanup of the rows">Dedupe (AI)</button>
+           <span class="mono" id="dedupeMsg" style="font-size:12px"></span>
+         </div>
        </div>
      </div>
 
@@ -231,29 +249,37 @@ export function sourceView(email: string): string {
 
        /* ---- sourced lists ---- */
        function loadLists(){return J('/api/source/lists').then(function(j){if(!j.ok)return;LISTS=j.lists;
-         if(!j.hiker)$('#nMsg').textContent='note: HIKER_API_KEY not set on server — discovery will fail.';
-         var sel=$('#listSel');sel.innerHTML='<option value="">— select a source —</option>'+LISTS.map(function(l){return '<option value="'+l.id+'"'+(CUR==l.id?' selected':'')+'>'+esc(l.name)+' ('+(l.size||0)+')</option>';}).join('');});}
+         if($('#hikerNote'))$('#hikerNote').textContent=j.hiker?'':'(HikerAPI key not set on server — Instagram sourcing will fail.)';
+         var sel=$('#listSel');sel.innerHTML='<option value="">— select a list —</option>'+LISTS.map(function(l){return '<option value="'+l.id+'"'+(CUR==l.id?' selected':'')+'>'+esc(l.name)+' ('+(l.size||0)+')</option>';}).join('');});}
        $('#listSel').onchange=function(){var id=$('#listSel').value;openList(id?Number(id):null);};
-
-       $('#nCreate').onclick=function(){var niche=$('#nNiche').value.trim();var tags=$('#nTags').value.split(',').map(function(t){return t.trim();}).filter(Boolean);
-         if(!niche){$('#nMsg').textContent='enter a niche label';return;}if(!tags.length){$('#nMsg').textContent='enter at least one hashtag';return;}
-         $('#nMsg').textContent='creating…';
-         POST('/api/source/lists',{name:niche,niche:niche,hashtags:tags}).then(function(j){
-           if(!j.ok){$('#nMsg').textContent='error: '+(j.error||'failed');return;}
-           $('#nMsg').textContent='created ✓';$('#nNiche').value='';$('#nTags').value='';
-           CUR=j.id;loadLists().then(function(){openList(j.id);});});};
+       /* + New list: create a persistent blank list ("New list N") and open its empty table */
+       $('#newList').onclick=function(){$('#newList').disabled=true;
+         POST('/api/source/lists/blank').then(function(j){$('#newList').disabled=false;
+           if(!j.ok)return;CUR=j.id;loadLists().then(function(){openList(j.id);});});};
+       $('#addRowBtn').onclick=function(){if(CUR==null)return;$('#addRowBtn').disabled=true;
+         POST('/api/source/lists/'+CUR+'/rows',{}).then(function(){$('#addRowBtn').disabled=false;fetchStatus();});};
+       /* AI dedupe + cleanup pass over the current list's rows */
+       $('#dedupeBtn').onclick=function(){if(CUR==null)return;
+         $('#dedupeBtn').disabled=true;$('#dedupeMsg').textContent='thinking… (gpt-5.4)';
+         POST('/api/source/lists/'+CUR+'/dedupe').then(function(j){$('#dedupeBtn').disabled=false;
+           if(!j.ok){$('#dedupeMsg').textContent='error: '+(j.error||'failed');return;}
+           $('#dedupeMsg').textContent='removed '+(j.removed||0)+' · merged '+(j.modified||0)+(j.capped?' (first 300 rows)':'')+' ✓';
+           fetchStatus();loadLists();});};
 
        function openList(id){CUR=id;if(POLL){clearInterval(POLL);POLL=null;}
-         if(!id){$('#cfgCard').style.display='none';$('#tblWrap').style.display='none';return;}
-         $('#listSel').value=id;$('#cfgCard').style.display='';$('#tblWrap').style.display='';
-         fetchStatus(true);POLL=setInterval(fetchStatus,3000);}
+         if(!id){$('#cfgCard').style.display='none';$('#tblWrap').style.display='none';$('#addRow').style.display='none';return;}
+         $('#listSel').value=id;$('#cfgCard').style.display='';$('#tblWrap').style.display='';$('#addRow').style.display='';
+         fetchStatus(true);}
 
        function fetchStatus(loadCfg){if(CUR==null)return;
          J('/api/source/lists/'+CUR+'/status').then(function(j){if(!j.ok)return;
            var running=(j.status==='running');
            $('#srcStatus').textContent=(running?'● sourcing… ':'')+ (j.found||0)+'/'+(j.target||0)+' phones · '+(j.scanned||0)+' scanned'+(j.status==='error'?' · error':'');
            $('#srcStart').textContent=running?'Sourcing…':'Turn on';$('#srcStart').disabled=running;
-           renderTbl(j.rows||[]);
+           /* editable when idle (manual fill); read-only snapshot while sourcing runs */
+           renderTbl(j.rows||[], !running);
+           if(running){ if(!POLL)POLL=setInterval(fetchStatus,3000); }
+           else { if(POLL){clearInterval(POLL);POLL=null;} }
            if(loadCfg){ /* hydrate config inputs once on open */
              var l=LISTS.filter(function(x){return x.id==CUR;})[0];$('#cfgTitle').textContent=l?l.name:'Source';
              hydrateCfg(j.config);}});}
@@ -261,50 +287,104 @@ export function sourceView(email: string): string {
        $('#srcStart').onclick=function(){if(CUR==null)return;saveCfg(true).then(function(){
          $('#srcStatus').textContent='starting…';POST('/api/source/lists/'+CUR+'/start').then(function(j){
            if(!j.ok){$('#srcStatus').textContent='error: '+(j.error||'failed');return;}
-           if(POLL)clearInterval(POLL);fetchStatus();POLL=setInterval(fetchStatus,3000);});});};
+           fetchStatus();/* fetchStatus starts polling while running */});});};
        $('#srcSave').onclick=function(){saveCfg(false);};
+       $('#cInstrToggle').onchange=function(){$('#cInstrBox').style.display=this.checked?'':'none';};
        $('#srcDel').onclick=function(){if(CUR==null)return;if(!confirm('Delete this source?'))return;
          DEL('/api/source/lists/'+CUR).then(function(){CUR=null;openList(null);loadLists();});};
        function saveCfg(quiet){if(CUR==null)return Promise.resolve();
-         var body={targetPhones:Number($('#cTarget').value)||10,refreshDays:Number($('#cRefresh').value)||2,
+         var body={targetHandles:Number($('#cHandles').value)||40,targetPhones:Number($('#cTarget').value)||10,refreshDays:Number($('#cRefresh').value)||2,
            minFollowers:Number($('#cMin').value)||0,maxFollowers:Number($('#cMax').value)||100000,
            hashtags:$('#cTags').value.split(',').map(function(t){return t.trim();}).filter(Boolean),
            instruction:$('#cInstr').value};
          return PUT('/api/source/lists/'+CUR,body).then(function(j){if(!quiet)$('#srcSave').textContent=j.ok?'Saved ✓':'Error';setTimeout(function(){$('#srcSave').textContent='Save';},1200);return j;});}
 
        /* hydrate the config inputs the first time a list opens (status doesn't return cfg, so pull defaults from server on create) */
-       function hydrateCfg(s){if(!s)return;$('#cTarget').value=s.targetPhones;$('#cRefresh').value=s.refreshDays;$('#cMin').value=s.minFollowers;$('#cMax').value=s.maxFollowers;$('#cTags').value=(s.hashtags||[]).join(', ');$('#cInstr').value=s.instruction||'';}
+       function hydrateCfg(s){if(!s)return;$('#cHandles').value=(s.targetHandles!=null?s.targetHandles:40);$('#cTarget').value=s.targetPhones;$('#cRefresh').value=s.refreshDays;$('#cMin').value=s.minFollowers;$('#cMax').value=s.maxFollowers;$('#cTags').value=(s.hashtags||[]).join(', ');$('#cInstr').value=s.instruction||'';}
 
-       /* ---- live table (current columns) ---- */
-       function renderTbl(rows){
-         $('#tblMeta').textContent=rows.length+' candidates · '+rows.filter(function(r){return r.phone;}).length+' with a phone';
-         var head='<thead><tr><th>Instagram</th><th>Name</th><th>Phone</th><th>Link</th><th>Category</th></tr></thead>';
+       /* ---- live table — editable when idle, read-only snapshot while sourcing ---- */
+       var CAP=300; /* cap rendered rows for performance; all rows persist regardless */
+       function renderTbl(rows,editable){
+         var withPh=rows.filter(function(r){return r.phone;}).length;
+         var shown=Math.min(rows.length,CAP);
+         $('#tblMeta').textContent=rows.length+' rows · '+withPh+' with a phone'+(rows.length>CAP?(' · showing first '+CAP):'');
+         var head='<thead><tr><th>Instagram</th><th>Name</th><th>Phone</th><th>Link</th><th>Category</th><th style="width:28px"></th></tr></thead>';
          var dash='<span class="hint">—</span>';
-         var body=rows.map(function(r){
-           return '<tr><td>'+(r.instagram_handle?'@'+esc(r.instagram_handle):dash)+'</td>'
-             +'<td>'+(r.name?esc(r.name):dash)+'</td>'
-             +'<td>'+(r.phone?'<span class="mono">'+esc(r.phone)+'</span>':dash)+'</td>'
-             +'<td>'+(r.event_link?('<a href="'+esc(r.event_link)+'" target="_blank" rel="noopener">link ↗</a>'):dash)+'</td>'
-             +'<td>'+(r.category?esc(r.category):dash)+'</td></tr>';}).join('');
-         $('#srcTbl').innerHTML=head+'<tbody>'+(body||'<tr><td colspan="5" class="muted">No candidates yet — Turn on to start sourcing.</td></tr>')+'</tbody>';}
+         var body;
+         if(editable){
+           body=rows.slice(0,CAP).map(function(r,i){
+             function inp(f,v){return '<input class="rcell" data-idx="'+i+'" data-field="'+f+'" value="'+esc(v||'')+'" style="width:100%;border:1px solid #eee;border-radius:6px;background:#fff;padding:7px 8px;font-size:13px">';}
+             return '<tr>'
+               +'<td>'+inp('instagram_handle',r.instagram_handle)+'</td>'
+               +'<td>'+inp('name',r.name)+'</td>'
+               +'<td>'+inp('phone',r.phone)+'</td>'
+               +'<td>'+inp('event_link',r.event_link)+'</td>'
+               +'<td>'+inp('category',r.category)+'</td>'
+               +'<td><button class="x" title="delete row" onclick="delRow('+i+')">✕</button></td></tr>';}).join('');
+         } else {
+           body=rows.slice(0,CAP).map(function(r){
+             return '<tr><td>'+(r.instagram_handle?'@'+esc(r.instagram_handle):dash)+'</td>'
+               +'<td>'+(r.name?esc(r.name):dash)+'</td>'
+               +'<td>'+(r.phone?'<span class="mono">'+esc(r.phone)+'</span>':dash)+'</td>'
+               +'<td>'+(r.event_link?('<a href="'+esc(r.event_link)+'" target="_blank" rel="noopener">link ↗</a>'):dash)+'</td>'
+               +'<td>'+(r.category?esc(r.category):dash)+'</td><td></td></tr>';}).join('');
+         }
+         $('#srcTbl').innerHTML=head+'<tbody>'+(body||'<tr><td colspan="6" class="muted">Empty list — click <b>+ Add row</b> to fill it manually, set hashtags &amp; Turn on, or import from Attio.</td></tr>')+'</tbody>';
+         if(editable)wireCells();
+         void shown;}
+       function wireCells(){Array.prototype.slice.call(document.querySelectorAll('#srcTbl .rcell')).forEach(function(inp){
+         inp.onchange=function(){if(CUR==null)return;var idx=inp.getAttribute('data-idx');var row={};
+           Array.prototype.slice.call(document.querySelectorAll('#srcTbl .rcell[data-idx="'+idx+'"]')).forEach(function(x){row[x.getAttribute('data-field')]=x.value;});
+           PUT('/api/source/lists/'+CUR+'/rows/'+idx,row).then(function(){var l=LISTS.filter(function(x){return x.id==CUR;})[0];});};});}
+       window.delRow=function(idx){if(CUR==null)return;DEL('/api/source/lists/'+CUR+'/rows/'+idx).then(function(){fetchStatus();loadLists();});};
 
-       /* ---- Attio import (ported here, with attribute→column mapping) ---- */
-       function loadAttio(){J('/api/settings').then(function(j){if(j&&j.attioConnected){$('#atNote').style.display='none';$('#atBox').style.display='';loadObjects();}});}
+       /* ---- Attio import (ported here, with column→attribute mapping) ---- */
+       function loadAttio(){J('/api/settings').then(function(j){
+         var connected=j&&j.attioConnected;
+         $('#atConnect').style.display=connected?'none':'';
+         $('#atConnected').style.display=connected?'':'none';
+         $('#atBox').style.display=connected?'':'none';
+         if(connected)loadObjects();});}
+       $('#atConnectBtn').onclick=function(){var k=$('#atKey').value.trim();if(k.length<10){$('#atConnMsg').textContent='paste your Attio API key';return;}
+         $('#atConnMsg').textContent='connecting…';$('#atConnectBtn').disabled=true;
+         POST('/api/attio/connect',{key:k}).then(function(j){$('#atConnectBtn').disabled=false;
+           if(!j.ok){$('#atConnMsg').textContent='error: '+(j.error||'failed');return;}
+           $('#atConnMsg').textContent='';$('#atKey').value='';loadAttio();});};
+       $('#atDisconnect').onclick=function(){if(!confirm('Remove the Attio key? Imports will stop until you paste a key again.'))return;
+         POST('/api/attio/disconnect').then(function(){$('#atMsg').textContent='';loadAttio();});};
        function loadObjects(){J('/api/attio/objects').then(function(j){if(!j.ok){$('#atMsg').textContent=j.error||'connect Attio first';return;}
-         $('#atObj').innerHTML=j.objects.map(function(o){return '<option value="'+o.api_slug+'">'+esc(o.plural||o.api_slug)+'</option>';}).join('');$('#atObj').onchange=objChange;objChange();});}
+         $('#atObj').innerHTML=j.objects.map(function(o){return '<option value="'+o.api_slug+'">'+esc(o.plural||o.singular||o.api_slug)+'</option>';}).join('');$('#atObj').onchange=objChange;objChange();});}
        function objChange(){var obj=$('#atObj').value;if(!obj)return;
+         /* load this object's attributes (for mapping) + its lists (for optional subset) */
+         J('/api/attio/objects/'+obj+'/lists').then(function(r){var lists=(r&&r.ok&&r.lists)||[];
+           $('#atList').innerHTML='<option value="">— whole object —</option>'+lists.map(function(l){return '<option value="'+l.id+'">'+esc(l.name)+'</option>';}).join('');});
          J('/api/attio/objects/'+obj+'/attributes').then(function(r){ATTRS=r.ok?r.attributes:[];
            var opts=ATTRS.map(function(a){return '<option value="'+a.api_slug+'">'+esc(a.title)+' ('+a.type+')</option>';}).join('');
            var none='<option value="">— none —</option>';
-           $('#mapPhone').innerHTML=opts;$('#mapName').innerHTML=none+opts;$('#mapIg').innerHTML=none+opts;$('#mapLink').innerHTML=none+opts;$('#mapCat').innerHTML=none+opts;
-           var ph=(ATTRS.filter(function(a){return a.type==='phone-number';})[0]||{}).api_slug;if(ph)$('#mapPhone').value=ph;
-           var nm=(ATTRS.filter(function(a){return a.type==='personal-name';})[0]||{}).api_slug;if(nm)$('#mapName').value=nm;});}
-       $('#atImport').onclick=function(){var phone=$('#mapPhone').value;if(!phone){$('#atMsg').textContent='pick a phone attribute';return;}
-         var mapping={phone:phone,name:$('#mapName').value||undefined,vars:[]};
-         [['#mapIg','instagram_handle'],['#mapLink','instagram_link'],['#mapCat','category']].forEach(function(p){if($(p[0]).value)mapping.vars.push($(p[0]).value);});
-         $('#atMsg').textContent='importing…';
-         POST('/api/lists/attio',{name:$('#atName').value||'Attio list',object:$('#atObj').value,mapping:mapping}).then(function(j){
-           $('#atMsg').textContent=j.ok?'imported ✓ — available in Outbound':('error: '+(j.error||'failed'));if(j.ok)loadLists();});};
+           $('#mapPhone').innerHTML=none+opts;$('#mapName').innerHTML=none+opts;$('#mapIg').innerHTML=none+opts;$('#mapLink').innerHTML=none+opts;$('#mapCat').innerHTML=none+opts;
+           var bySlug=function(s){return (ATTRS.filter(function(a){return a.api_slug===s;})[0]||{}).api_slug;};
+           var byType=function(t){return (ATTRS.filter(function(a){return a.type===t;})[0]||{}).api_slug;};
+           var ph=byType('phone-number');if(ph)$('#mapPhone').value=ph;
+           var nm=byType('personal-name')||bySlug('name');if(nm)$('#mapName').value=nm;
+           var ig=bySlug('instagram');if(ig)$('#mapIg').value=ig;
+           var lk=bySlug('external_url')||bySlug('bio_links')||bySlug('linkedin');if(lk)$('#mapLink').value=lk;
+           var ct=bySlug('instagram_category')||bySlug('categories')||bySlug('lead_source');if(ct)$('#mapCat').value=ct;});}
+       $('#atImport').onclick=function(){
+         var mapping={phone:$('#mapPhone').value||undefined,name:$('#mapName').value||undefined,
+           instagram:$('#mapIg').value||undefined,link:$('#mapLink').value||undefined,category:$('#mapCat').value||undefined};
+         var body={object:$('#atObj').value,listId:$('#atList').value||undefined,mapping:mapping};
+         function doImport(listId){
+           $('#atMsg').textContent='importing… (a whole object can take a moment)';$('#atImport').disabled=true;
+           POST('/api/source/lists/'+listId+'/import-attio',body).then(function(j){
+             $('#atImport').disabled=false;
+             if(!j.ok){$('#atMsg').textContent='error: '+(j.error||'failed');return;}
+             $('#atMsg').textContent='added '+j.added+' rows ✓'+(j.skippedNoPhone?(' ('+j.skippedNoPhone+' skipped, no phone)'):'');
+             CUR=listId;loadLists().then(function(){openList(listId);});
+           });
+         }
+         /* add onto the currently-open list, or spin up a new one to receive the rows */
+         if(CUR!=null){doImport(CUR);}
+         else{POST('/api/source/lists/blank').then(function(j){if(j.ok)doImport(j.id);});}};
 
        loadLists();loadAttio();
      </script>`,
@@ -315,12 +395,114 @@ export function qualifyingView(email: string): string {
   return page(
     'Qualifying — Lepton',
     shellNav(email, 'qualifying') +
-      `<div class="wrap" style="max-width:680px">
-         <div class="card center" style="margin-top:40px;padding:48px">
-           <h3>Qualifying</h3>
-           <p class="muted mt">Coming soon. This is where sourced leads get scored and filtered before they enter an outbound sequence.</p>
+      `<div class="wrap" style="max-width:1320px">
+       <div class="flex"><h3>Qualify leads</h3>
+         <div class="row2">
+           <label class="hint" for="qListSel" style="margin:0">List</label>
+           <select id="qListSel" style="width:280px"></select>
          </div>
-       </div>`,
+       </div>
+       <p class="hint">Pick a list, describe your <b>ideal lead</b> in the box, and gpt-5.4 scores every row <b>0–100</b> with a <b>tier</b> and a one-sentence <b>reason</b>. Each Instagram handle is re-checked against live profile data (followers, bio, business flag) first, so the score is grounded — the model judges only the data shown, it doesn't guess. <span id="qAiNote"></span></p>
+
+       <!-- CRITERIA + RUN -->
+       <div id="qCfg" class="card mt" style="display:none">
+         <div class="flex"><h4 style="margin:0" id="qTitle">List</h4>
+           <div class="row2"><span class="mono" id="qStatus"></span>
+             <button class="btn ghost sm" id="qSave">Save</button>
+             <button class="btn sm" id="qRun">Qualify</button>
+           </div>
+         </div>
+         <label class="mt">How to qualify <span class="hint">(plain English — your ideal lead + disqualifiers)</span></label>
+         <textarea id="qCriteria" rows="6"></textarea>
+         <div id="qBreak" class="row2 mt" style="display:none;gap:14px;align-items:center">
+           <span class="badge hot" id="qHot">hot 0</span>
+           <span class="badge warm" id="qWarm">warm 0</span>
+           <span class="badge cold" id="qCold">cold 0</span>
+           <span style="flex:1"></span>
+           <button class="btn ghost sm" id="qSpinHot" title="new list of leads scoring 70+">＋ List from hot</button>
+           <button class="btn ghost sm" id="qSpinWarm" title="new list of leads scoring 40+">＋ List from warm+</button>
+           <span class="mono" id="qSpinMsg" style="font-size:12px"></span>
+         </div>
+       </div>
+
+       <!-- LIVE SCORED TABLE -->
+       <div id="qTblWrap" class="mt" style="display:none">
+         <div class="muted" style="font-size:12px" id="qMeta"></div>
+         <div style="overflow-x:auto"><table class="tbl" id="qTbl" style="width:100%"></table></div>
+       </div>
+     </div>
+
+     <style>
+       .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid #ddd}
+       .badge.hot{background:#fdecea;color:#b3261e;border-color:#f3c0bb}
+       .badge.warm{background:#fff5e6;color:#9a6400;border-color:#f0d9a8}
+       .badge.cold{background:#eef1f4;color:#5b6670;border-color:#dde2e7}
+       #qTbl td .rs{font-variant-numeric:tabular-nums;font-weight:600}
+     </style>
+
+     <script>
+       var $=function(s){return document.querySelector(s);};
+       var J=function(u,o){return fetch(u,o).then(function(r){return r.json();}).catch(function(){return {ok:false,error:'bad response'};});};
+       var POST=function(u,b){return J(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})});};
+       var PUT=function(u,b){return J(u,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})});};
+       var esc=function(s){return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+       var LISTS=[],CUR=null,POLL=null,HYDRATED=false;
+
+       function loadLists(){return J('/api/qualify/lists').then(function(j){if(!j.ok)return;LISTS=j.lists;
+         if($('#qAiNote'))$('#qAiNote').textContent=j.ai?'':'(OPENAI_API_KEY not set on server — qualifying will fail.)';
+         var sel=$('#qListSel');sel.innerHTML='<option value="">— select a list —</option>'+LISTS.map(function(l){return '<option value="'+l.id+'"'+(CUR==l.id?' selected':'')+'>'+esc(l.name)+' ('+(l.size||0)+')</option>';}).join('');});}
+       $('#qListSel').onchange=function(){var id=$('#qListSel').value;openList(id?Number(id):null);};
+
+       function openList(id){CUR=id;HYDRATED=false;if(POLL){clearInterval(POLL);POLL=null;}
+         if(!id){$('#qCfg').style.display='none';$('#qTblWrap').style.display='none';return;}
+         $('#qListSel').value=id;$('#qCfg').style.display='';$('#qTblWrap').style.display='';
+         var l=LISTS.filter(function(x){return x.id==CUR;})[0];$('#qTitle').textContent=l?l.name:'List';
+         fetchStatus();}
+
+       function fetchStatus(){if(CUR==null)return;
+         J('/api/qualify/lists/'+CUR+'/status').then(function(j){if(!j.ok)return;
+           var running=(j.status==='running');
+           $('#qStatus').textContent=(running?'● scoring… ':'')+(j.scanned||0)+'/'+(j.total||0)+' scored'+(j.status==='error'?' · error':'');
+           $('#qRun').textContent=running?'Qualifying…':'Qualify';$('#qRun').disabled=running;
+           if(!HYDRATED){$('#qCriteria').value=j.criteria||'';HYDRATED=true;}
+           var c=j.counts||{hot:0,warm:0,cold:0,scored:0};
+           $('#qBreak').style.display=c.scored?'flex':'none';
+           $('#qHot').textContent='hot '+c.hot;$('#qWarm').textContent='warm '+c.warm;$('#qCold').textContent='cold '+c.cold;
+           renderTbl(j.rows||[]);
+           if(running){if(!POLL)POLL=setInterval(fetchStatus,3000);}else{if(POLL){clearInterval(POLL);POLL=null;}}});}
+
+       $('#qSave').onclick=function(){if(CUR==null)return;
+         PUT('/api/qualify/lists/'+CUR,{criteria:$('#qCriteria').value}).then(function(j){
+           $('#qSave').textContent=j.ok?'Saved ✓':'Error';setTimeout(function(){$('#qSave').textContent='Save';},1200);});};
+       $('#qRun').onclick=function(){if(CUR==null)return;$('#qStatus').textContent='starting…';
+         POST('/api/qualify/lists/'+CUR+'/run',{criteria:$('#qCriteria').value}).then(function(j){
+           if(!j.ok){$('#qStatus').textContent='error: '+(j.error||'failed');return;}fetchStatus();});};
+
+       function spin(min){if(CUR==null)return;$('#qSpinMsg').textContent='creating…';
+         POST('/api/qualify/lists/'+CUR+'/spinoff',{min:min}).then(function(j){
+           if(!j.ok){$('#qSpinMsg').textContent='error: '+(j.error||'failed');return;}
+           $('#qSpinMsg').textContent='created "'+esc(j.name)+'" ('+j.count+') ✓ — find it in Source & Outbound';loadLists();});}
+       $('#qSpinHot').onclick=function(){spin(70);};
+       $('#qSpinWarm').onclick=function(){spin(40);};
+
+       var CAP=300;
+       function renderTbl(rows){
+         var scored=rows.filter(function(r){return r.tier;}).length;
+         $('#qMeta').textContent=rows.length+' rows · '+scored+' scored'+(rows.length>CAP?(' · showing first '+CAP):'');
+         var head='<thead><tr><th>Instagram</th><th>Name</th><th>Phone</th><th style="width:56px">Score</th><th style="width:64px">Tier</th><th>Reason</th></tr></thead>';
+         var dash='<span class="hint">—</span>';
+         var body=rows.slice(0,CAP).map(function(r){
+           var tier=r.tier?'<span class="badge '+r.tier+'">'+r.tier+'</span>':dash;
+           var score=(r.score!=null)?'<span class="rs">'+r.score+'</span>':dash;
+           return '<tr><td>'+(r.instagram_handle?'@'+esc(r.instagram_handle):dash)+'</td>'
+             +'<td>'+(r.name?esc(r.name):dash)+'</td>'
+             +'<td>'+(r.phone?'<span class="mono">'+esc(r.phone)+'</span>':dash)+'</td>'
+             +'<td>'+score+'</td><td>'+tier+'</td>'
+             +'<td>'+(r.reason?esc(r.reason):dash)+'</td></tr>';}).join('');
+         $('#qTbl').innerHTML=head+'<tbody>'+(body||'<tr><td colspan="6" class="muted">This list has no rows yet. Add leads in the Source tab first.</td></tr>')+'</tbody>';}
+
+       loadLists();
+     </script>`,
   )
 }
 
@@ -768,7 +950,7 @@ export function dashboardView(email: string): string {
        function renderLists(){return J('/api/lists').then(function(j){if(j.ok)LISTS=j.lists;renderCanvas();
          var s=SEL?findNode(SEL):null;if(s&&s.type==='start')renderInspector();});}
        function loadListTable(){var sel=$('#iList');if(!sel)return;var id=sel.value;var box=$('#iListTbl');if(!box)return;
-         if(!id){box.innerHTML='<p class="hint">No list selected yet — import people below to create one.</p>';return;}
+         if(!id){box.innerHTML='<p class="hint">No list selected yet — pick one above, or build lists in the <a href="/source">Source</a> tab.</p>';return;}
          box.innerHTML='<p class="hint">loading…</p>';
          J('/api/lists/'+id+'/contacts').then(function(j){if(!j.ok){box.innerHTML='<p class="hint">'+(j.error||'could not load this list')+'</p>';return;}
            var rows=j.contacts||[];
@@ -781,18 +963,6 @@ export function dashboardView(email: string): string {
              return '<tr><td>'+ig+'</td><td>'+cat+'</td><td>'+lk+'</td></tr>';}).join('');
            box.innerHTML='<div class="muted" style="font-size:12px">'+rows.length+' people in this list'+(rows.length>200?' (showing 200)':'')+'</div>'
              +'<table class="tbl"><thead><tr><th>Instagram</th><th>Category</th><th>Link</th></tr></thead><tbody>'+body+'</tbody></table>';});}
-       function loadAttioObjectsInto(){J('/api/attio/objects').then(function(j){if(!j.ok){if($('#iAtResult'))$('#iAtResult').textContent=j.error||'connect Attio in Connections (left dashboard) first';return;}
-         $('#iAtObj').innerHTML=j.objects.map(function(o){return '<option value="'+o.api_slug+'">'+esc(o.plural||o.api_slug)+'</option>';}).join('');$('#iAtObj').onchange=atObjChangeInto;atObjChangeInto();});}
-       function atObjChangeInto(){var obj=$('#iAtObj').value;if(!obj)return;
-         Promise.all([J('/api/attio/objects/'+obj+'/attributes'),J('/api/attio/objects/'+obj+'/lists')]).then(function(r){
-           ATTRS=(r[0].ok?r[0].attributes:[]);var lists=(r[1].ok?r[1].lists:[]);
-           $('#iAtList').innerHTML='<option value="">— whole object —</option>'+lists.map(function(l){return '<option value="'+l.id+'">'+esc(l.name)+'</option>';}).join('');
-           var opts=ATTRS.map(function(a){return '<option value="'+a.api_slug+'">'+esc(a.title)+' ('+a.type+')</option>';}).join('');
-           var none='<option value="">— none —</option>';
-           $('#iAtPhone').innerHTML=opts;$('#iAtName2').innerHTML=none+opts;$('#iAtIg').innerHTML=none+opts;$('#iAtLink').innerHTML=none+opts;
-           var ph=(ATTRS.filter(function(a){return a.type==='phone-number';})[0]||{}).api_slug;if(ph)$('#iAtPhone').value=ph;
-           var nm=(ATTRS.filter(function(a){return a.type==='personal-name';})[0]||{}).api_slug;if(nm)$('#iAtName2').value=nm;});}
-
        /* lead table with draggable columns */
        var COLS=[{k:'status',l:'Status'},{k:'instagram_handle',l:'Instagram handle'},{k:'category',l:'Category'},{k:'account',l:'WA account (sending from)'},{k:'event_link',l:'Event (Instagram link)'}];
        var STMAP={pending:'No contact',sent:'Contacted',completed:'Contacted',replied:'Replied',failed:'Failed',skipped:'Skipped'};
