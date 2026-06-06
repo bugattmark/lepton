@@ -141,6 +141,86 @@ export function authView(mode: 'login' | 'signup', error?: string): string {
   )
 }
 
+// Onboarding dashboard (/dashboard). Layout + copy mirror the reference exactly; rendered B&W.
+export function onboardingView(_email: string): string {
+  const linkIcon =
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+  const lockIcon =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+  const refreshIcon =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
+
+  const locked = (title: string, note: string, desc: string, extra = ''): string =>
+    `<div class="ob-step ob-locked">
+       <div class="ob-ico ob-ico-lock">${lockIcon}</div>
+       <div class="ob-body">
+         <div class="ob-title">${title} <span class="ob-note">${note}</span></div>
+         <p class="ob-desc">${desc}</p>
+         ${extra}
+       </div>
+     </div>`
+
+  const progress =
+    `<div class="ob-progress">
+       <div class="ob-prow">
+         <span class="ob-ptitle">Progress ${refreshIcon}</span>
+         <span class="ob-pcount">0 / 10 emails sent</span>
+       </div>
+       <div class="ob-pbar"><div class="ob-pfill" style="width:0%"></div></div>
+     </div>`
+
+  return page(
+    'Dashboard',
+    `<div class="ob-page">
+       <div class="ob-panel">
+         <div class="ob-label">ONBOARDING STEPS</div>
+
+         <div class="ob-step ob-active">
+           <div class="ob-ico ob-ico-link">${linkIcon}</div>
+           <div class="ob-body">
+             <div class="ob-title">Add a Link <span class="ob-badge">&lt;1 min</span></div>
+             <p class="ob-desc">Social link, website, portfolio, company page — anywhere brands can see your work.</p>
+             <a class="ob-btn" href="#">ADD A LINK <span class="ob-arrow">→</span></a>
+           </div>
+         </div>
+
+         ${locked('Create Your Pitch Template', '· Finish 1 step above first', 'Write the email Bento sends to brands. Strong templates roughly 3x your reply rate.')}
+         ${locked('Create Follow-Up Template', '· Finish 2 steps above first', 'Most replies come from follow-ups — set this up once and Bento sends them automatically.')}
+         ${locked('Send a first email with a follow up', '· Finish 3 steps above first', "Send a pitch with a follow-up scheduled right after — Bento sends it automatically if they don't reply.")}
+         ${locked('Send 10 Brand Pitches', '· Finish 4 steps above first', 'Browse brands matched to your niche and send your first 10 pitches to finish onboarding.', progress)}
+       </div>
+     </div>
+     <style>
+       .ob-page{max-width:860px;margin:0 auto;padding:40px 24px}
+       .ob-panel{border:1px solid var(--line);border-radius:18px;padding:28px}
+       .ob-label{font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--muted);margin-bottom:18px}
+       .ob-step{display:flex;gap:18px;border-radius:14px;padding:22px 24px;margin-bottom:14px}
+       .ob-step:last-child{margin-bottom:0}
+       .ob-active{background:#fff;border:1px solid #000;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+       .ob-locked{background:#f6f6f6;border:1px solid #f6f6f6}
+       .ob-ico{flex:0 0 auto;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+       .ob-ico-link{background:#efefef;color:#000}
+       .ob-ico-lock{background:#ececec;color:#aaa}
+       .ob-body{flex:1;min-width:0}
+       .ob-title{font-size:20px;font-weight:700;letter-spacing:-.01em;color:#000;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+       .ob-locked .ob-title{color:#9a9a9a}
+       .ob-note{font-size:15px;font-weight:400;color:#b3b3b3}
+       .ob-badge{display:inline-block;background:#000;color:#fff;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600}
+       .ob-desc{margin-top:8px;font-size:16px;color:#444}
+       .ob-locked .ob-desc{color:#b3b3b3}
+       .ob-btn{display:inline-flex;align-items:center;gap:10px;margin-top:16px;background:#fff;color:#000;border:1px solid #000;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;cursor:pointer}
+       .ob-btn:hover{background:#000;color:#fff}
+       .ob-arrow{font-weight:400}
+       .ob-progress{margin-top:18px}
+       .ob-prow{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+       .ob-ptitle{display:inline-flex;align-items:center;gap:8px;font-size:16px;color:#7a7a7a}
+       .ob-pcount{font-size:17px;font-weight:700;color:#000}
+       .ob-pbar{height:8px;border-radius:999px;background:#e5e5e5;overflow:hidden}
+       .ob-pfill{height:100%;background:#000;border-radius:999px}
+     </style>`,
+  )
+}
+
 // Shared top bar with the three product tabs (Source / Qualifying / Outbound).
 function shellNav(email: string, active: 'source' | 'qualifying' | 'outbound'): string {
   const tab = (href: string, label: string, key: string) =>

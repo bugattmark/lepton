@@ -26,7 +26,7 @@ import { igLeadAvailable } from './iglead.ts'
 import * as src from './sourcing.ts'
 import * as dedupe from './dedupe.ts'
 import * as qual from './qualify.ts'
-import { landingView, authView, dashboardView, sourceView, qualifyingView } from './views.ts'
+import { landingView, authView, dashboardView, onboardingView, sourceView, qualifyingView } from './views.ts'
 
 const isProd = process.env.NODE_ENV === 'production'
 const PORT = Number(process.env.PORT ?? 8080)
@@ -170,6 +170,7 @@ app.post('/logout', (c) => {
 })
 
 // --- the three product tabs (auth) ---
+app.get('/dashboard', pageAuth, (c) => c.html(onboardingView(emailOf(c.get('tenantId')))))
 app.get('/outbound', pageAuth, (c) => c.html(dashboardView(emailOf(c.get('tenantId')))))
 app.get('/source', pageAuth, (c) => c.html(sourceView(emailOf(c.get('tenantId')))))
 app.get('/qualifying', pageAuth, (c) => c.html(qualifyingView(emailOf(c.get('tenantId')))))
