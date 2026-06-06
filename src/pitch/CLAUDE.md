@@ -48,8 +48,11 @@ or a fake compliment. A thin honest pitch beats a padded fake one.
 4. **Show proof.** Real numbers from past work, or a relevant past brand. "Last
    month's similar Reel hit 84K views / 7% ER / 2,300 link clicks" > "I've worked with
    brands." If there's no proof yet, lean harder on audience fit + the idea.
-5. **One low-friction ask.** A quick call, or "are you the right person for this?" Make
-   the next step a single click/yes.
+5. **One low-friction ask, phrased as a question.** End on an actual question, not a
+   statement. "Are you the right person for this?" or "Want me to send a couple of
+   concepts over?" beats "Let me know if you're interested." People reflexively answer
+   questions, so a question close reliably out-pulls a passive one. Make the next step a
+   single click/yes.
 
 ---
 
@@ -106,6 +109,8 @@ real dates. Mention the local-audience share if it's strong.
 - Never propose more than one core idea, or send a wall of metrics in the body.
 - Never set or demand a price in a cold pitch. If money comes up, defer: "happy to
   share rates once I know the scope." (Rates/budget come after they're interested.)
+- Never close with a passive line like "let me know" or "hope to hear from you." End on
+  a question (see ask, rule 5).
 - Never use a generic subject like "Collaboration Opportunity."
 - Never sound like a template. If swapping the brand name into another brand's pitch
   would still read fine, it's too generic — rewrite the hook and the idea.
@@ -157,7 +162,7 @@ a marketing blog, rewrite it plainer.
 - Could the manager picture the content idea from one read? 
 - Is there exactly one specific, real detail about *this* brand?
 - Is the strongest line about audience *fit*, not size?
-- Is there one clear, easy ask?
+- Is there one clear, easy ask, and does it end on a question?
 - Is it within the channel's word count?
 - Did I avoid every "never" above?
 - Does it read like a person wrote it? No em dashes, no corporate filler, no abstract
