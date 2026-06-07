@@ -1080,7 +1080,8 @@ export function sourceView(email: string): string {
        function fetchStatus(loadCfg){if(CUR==null)return;
          J('/api/source/lists/'+CUR+'/status').then(function(j){if(!j.ok)return;
            var running=(j.status==='running');
-           $('#srcStatus').textContent=(running?'● sourcing… ':'')+ (j.found||0)+'/'+(j.target||0)+' phones · '+(j.scanned||0)+' scanned'+(j.status==='error'?' · error':'');
+           $('#srcStatus').textContent=(running?'● sourcing… ':'')+ (j.found||0)+'/'+(j.target||0)+' phones · '+(j.scanned||0)+' scanned'+(j.status==='error'?(' · error: '+(j.error||'failed')):'');
+           $('#srcStatus').style.color=(j.status==='error')?'#c00':'';
            $('#srcStart').textContent=running?'Sourcing…':'Turn on';$('#srcStart').disabled=running;
            /* editable when idle (manual fill); read-only snapshot while sourcing runs */
            renderTbl(j.rows||[], !running);
@@ -1711,12 +1712,6 @@ export function dashboardView(email: string): string {
            <div id="campList" class="mt"></div>
          </div>
 
-         <!-- API TOKEN -->
-         <div class="card mt">
-           <h3>API token (Claude Code / MCP)</h3>
-           <p class="hint">Drive campaigns from an agent. Keep this secret.</p>
-           <div class="row2 mt"><button class="btn sm" id="tokBtn">Show token</button><span class="mono" id="tokVal"></span></div>
-         </div>
          </div><!-- /rightHome -->
 
          <!-- CAMPAIGN EDITOR (opens here, in the right panel) -->
@@ -1866,7 +1861,6 @@ export function dashboardView(email: string): string {
          if($('#aiNote'))$('#aiNote').textContent=j.ai?'AI personalization available.':'AI off — set ANTHROPIC_API_KEY on the server to enable per-lead AI openers.';
          if($('#wbToggle'))$('#wbToggle').checked=j.writeback;
          if(j.attioConnected&&$('#attioConnect')){$('#attioConnect').style.display='none';$('#attioOk').style.display='';$('#attioWs').textContent='connected';}});}
-       $('#tokBtn').onclick=function(){J('/api/token').then(function(j){$('#tokVal').textContent=j.ok?j.token:(j.error||'failed');});};
 
        /* ===================== MAIN: campaign list ===================== */
        function loadCampaigns(){return J('/api/campaigns').then(function(j){if(!j.ok)return;

@@ -64,14 +64,26 @@ async function hiker(path: string, params: Record<string, string>): Promise<any>
   const res = await fetch(`${HIKER}${path}?${qs}`, {
     headers: { 'x-access-key': key, 'user-agent': 'Mozilla/5.0' },
   })
-  if (!res.ok) throw new Error(`HikerAPI ${res.status}`)
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    let detail = body.slice(0, 200)
+    try {
+      const j = JSON.parse(body)
+      if (j?.error) detail = String(j.error)
+    } catch {
+      // non-JSON body — fall back to the raw text snippet above
+    }
+    throw new Error(`HikerAPI ${res.status}${detail ? `: ${detail}` : ''}`)
+  }
   return res.json()
 }
 
 // Pull candidate usernames posting under a hashtag's top media. Deduped, capped.
 export async function discoverByHashtag(tag: string, cap = 30): Promise<string[]> {
-  const data = await hiker('/v1/hashtag/medias/top', { name: tag.replace(/^#/, '') }).catch(() => null)
-  if (!data) return []
+  // Do NOT swallow: hiker() throws `HikerAPI <status>` on non-2xx (e.g. 402 InsufficientFunds when
+  // the account is out of credits). Let it propagate so runSourcing records it and the UI shows why
+  // the run produced nothing, instead of silently returning [] and looking like "0 found / turned off".
+  const data = await hiker('/v1/hashtag/medias/top', { name: tag.replace(/^#/, '') })
   const list: any[] = Array.isArray(data) ? data : data.response ?? data.items ?? []
   const seen = new Set<string>()
   for (const m of list) {
@@ -322,6 +334,7 @@ export function sourcingStatus(tenantId: string, listId: number) {
   const found = c.rows.filter((r) => r.phone).length
   return {
     status: running.has(listId) ? 'running' : c.sourcing.status,
+    error: c.sourcing.error ?? null,
     scanned: c.sourcing.scanned,
     found,
     target: c.sourcing.targetPhones,
