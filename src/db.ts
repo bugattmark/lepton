@@ -326,6 +326,268 @@ db.exec(`
   }
 }
 
+// ============================================================================
+// Creator-first pipeline — stage 1 (Creator IQ), stage 2 (Brand Matching), stage 3 (Proposals).
+// All net-new tables: the 2026-06-06 dual-mode spec *declared* creator_profiles/proposals but they
+// were never built, so there is nothing to migrate. FK order: tenants/brands (exist) ->
+// creator_profiles -> creator_brand_matches/_deals -> proposals -> proposal_creators. rate_cards /
+// pricing_config have no FKs. See docs/superpowers/plans/2026-06-07-foundation-plan.md.
+// ============================================================================
+db.exec(`
+  -- Creator IQ (stage 1): one structured profile per tenant. Base shape from the dual-mode spec;
+  -- stage-1 fields promoted to real columns below (queryable/joinable; rich detail stays JSON).
+  CREATE TABLE IF NOT EXISTS creator_profiles (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id        TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name             TEXT NOT NULL,
+    instagram_handle TEXT,
+    tiktok_handle    TEXT,
+    youtube_channel  TEXT,
+    website          TEXT,
+    bio              TEXT,
+    profile_data     TEXT,
+    created_at       INTEGER NOT NULL,
+    updated_at       INTEGER,
+    UNIQUE(tenant_id)              -- v1: one working profile per tenant (clean ON CONFLICT upsert)
+  );
+  CREATE INDEX IF NOT EXISTS idx_creator_profiles_tenant ON creator_profiles(tenant_id);
+`)
+
+// Creator IQ stage-1 promoted columns (creatoriq.ts writes these incrementally; stage-2/views read them).
+addColumn('creator_profiles', 'creator_type', 'TEXT')        // 'content' | 'events' | 'both' (inferred)
+addColumn('creator_profiles', 'visual_signals', 'TEXT')      // JSON: multimodal vision pass (subjects, aesthetic, on-camera brands)
+addColumn('creator_profiles', 'niche', 'TEXT')
+addColumn('creator_profiles', 'content_style', 'TEXT')
+addColumn('creator_profiles', 'engagement_rate', 'REAL')
+addColumn('creator_profiles', 'demographics', 'TEXT')        // JSON {age,gender,country,city}
+addColumn('creator_profiles', 'demographics_source', 'TEXT') // 'ig_business' | 'none'
+addColumn('creator_profiles', 'sectors', 'TEXT')             // JSON [{category,score,reason}] — categoryFacets() names
+addColumn('creator_profiles', 'inferred_audience', 'TEXT')   // JSON {summary, likely_buyer_sectors[], confidence}
+addColumn('creator_profiles', 'past_deals', 'TEXT')          // JSON [{brand,result,source:'self'|'caption'}]
+addColumn('creator_profiles', 'signals_used', 'TEXT')        // JSON: which signals present vs missing (fail-loud)
+addColumn('creator_profiles', 'summary', 'TEXT')
+addColumn('creator_profiles', 'status', 'TEXT')              // 'idle'|'running'|'done'|'error'
+addColumn('creator_profiles', 'error', 'TEXT')
+addColumn('creator_profiles', 'generated_at', 'INTEGER')
+// External data sources (2026-06-07-external-data-sources-design.md): additive, env-gated tiers.
+addColumn('creator_profiles', 'cross_platform', 'TEXT') // JSON [{platform,handle,followers,er,source}] (Apify Tier 1.5)
+addColumn('creator_profiles', 'web_signals', 'TEXT')    // JSON {press,site,podcasts,collabs,evidence_url[]} (Exa Tier 1.6)
+
+db.exec(`
+  -- Stage 2 output: per-creator ranked brand shortlist (tenant-scoped). Brand identity lives in the
+  -- shared brands catalog (written via upsertBrands); this references it.
+  CREATE TABLE IF NOT EXISTS creator_brand_matches (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id   TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    creator_id  INTEGER NOT NULL REFERENCES creator_profiles(id) ON DELETE CASCADE,
+    brand_id    INTEGER NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+    score       INTEGER,
+    tier        TEXT,
+    move        TEXT,                              -- 'estimate' | 'net_new' (v1); 'comparable' reserved for phase 2
+    reason      TEXT,
+    evidence    TEXT,                              -- JSON
+    status      TEXT NOT NULL DEFAULT 'suggested', -- 'suggested'|'selected'|'rejected'
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS idx_cbm_creator ON creator_brand_matches(creator_id, status);
+  CREATE INDEX IF NOT EXISTS idx_cbm_tenant  ON creator_brand_matches(tenant_id);
+  CREATE INDEX IF NOT EXISTS idx_cbm_brand   ON creator_brand_matches(brand_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_cbm_unique ON creator_brand_matches(tenant_id, creator_id, brand_id);
+
+  -- Stage 2 phase-2 dataset: mined PUBLIC deals about OTHER creators -> global cache (provenance).
+  CREATE TABLE IF NOT EXISTS creator_brand_deals (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    creator_handle TEXT NOT NULL,
+    brand_id       INTEGER REFERENCES brands(id) ON DELETE SET NULL,
+    brand_name     TEXT,
+    brand_handle   TEXT,
+    source         TEXT NOT NULL,   -- 'ad_library'|'sponsor_tag'|'caption'|'usertag'|'event_sponsor'
+    evidence_url   TEXT,
+    confidence     TEXT,
+    seen_at        INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_deals_brand  ON creator_brand_deals(brand_id);
+  CREATE INDEX IF NOT EXISTS idx_deals_handle ON creator_brand_deals(creator_handle);
+
+  -- Stage 3 pricing source-of-truth. SEEDED idempotently below. Currency-aware; low/mid/high are
+  -- whole-currency amounts (GBP). source = provenance.
+  CREATE TABLE IF NOT EXISTS rate_cards (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    tier       TEXT NOT NULL,    -- 'nano'|'micro'|'mid'|'macro'|'mega' | 'event'
+    platform   TEXT NOT NULL,    -- 'instagram'|'tiktok'|'ugc'|'event'
+    format     TEXT NOT NULL,    -- 'post'|'reel'|'story'|'video'|'ugc' | event deliverable slug
+    low        INTEGER,
+    mid        INTEGER,
+    high       INTEGER,
+    currency   TEXT NOT NULL,    -- 'GBP'|'USD'
+    source     TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    UNIQUE(tier, platform, format, currency)
+  );
+  CREATE INDEX IF NOT EXISTS idx_rate_cards_lookup ON rate_cards(tier, platform, format, currency);
+
+  -- Stage 3 pricing config: take_rate/niche/usage/exclusivity/ER-curve/bundle/guarantee/split.
+  -- ALL config, never literals in proposals.ts. Global defaults seeded; per-tenant overrides use a
+  -- 'key:<tenantId>' namespace (never mutate the bare global row). Missing config => pricing THROWS.
+  CREATE TABLE IF NOT EXISTS pricing_config (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    key        TEXT NOT NULL UNIQUE,
+    value_json TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+
+  -- Stage 3: a priced, brand-facing proposal. Base from dual-mode spec, reconciled to creator/brand
+  -- scope (campaign_id nullable — stage 3 keys off creator_profile_id + brand_id).
+  CREATE TABLE IF NOT EXISTS proposals (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id        INTEGER REFERENCES campaigns(id) ON DELETE SET NULL,
+    brand_match_id     INTEGER REFERENCES creator_brand_matches(id) ON DELETE SET NULL,
+    creator_profile_id INTEGER NOT NULL REFERENCES creator_profiles(id) ON DELETE CASCADE,
+    tiers              TEXT NOT NULL,
+    stretch_goals      TEXT,
+    status             TEXT NOT NULL DEFAULT 'draft', -- 'draft'|'sent'|'viewed'|'accepted'
+    public_token       TEXT UNIQUE,
+    created_at         INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_proposals_creator ON proposals(creator_profile_id);
+  CREATE INDEX IF NOT EXISTS idx_proposals_token   ON proposals(public_token);
+`)
+
+// Stage-3 money + linkage columns (pricing engine writes; /p/:token reads).
+addColumn('proposals', 'brand_id', 'INTEGER REFERENCES brands(id) ON DELETE SET NULL')
+addColumn('proposals', 'deal_type', 'TEXT')          // 'creator_pitched' | 'platform_campaign'
+addColumn('proposals', 'gross_price', 'INTEGER')
+addColumn('proposals', 'creator_net', 'INTEGER')
+addColumn('proposals', 'platform_cut', 'INTEGER')
+addColumn('proposals', 'take_rate_applied', 'REAL')
+addColumn('proposals', 'guarantee', 'TEXT')          // JSON {threshold, window_ends_at, state}
+addColumn('proposals', 'tenant_id', 'TEXT REFERENCES tenants(id) ON DELETE CASCADE')
+addColumn('proposals', 'updated_at', 'INTEGER')
+
+db.exec(`
+  -- Stage 3 follow-phase: platform_campaign proposals fan out to many creators. Schema landed now;
+  -- populated by the follow phase. Per-creator pitched proposals never use this table.
+  CREATE TABLE IF NOT EXISTS proposal_creators (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    proposal_id INTEGER NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
+    creator_id  INTEGER NOT NULL REFERENCES creator_profiles(id) ON DELETE CASCADE,
+    rate        INTEGER,
+    status      TEXT NOT NULL DEFAULT 'pending'
+  );
+  CREATE INDEX IF NOT EXISTS idx_proposal_creators_prop ON proposal_creators(proposal_id);
+`)
+
+// --- Stage-3 pricing seeds (idempotent; fail loud at boot) ---------------------------------------
+// Canonical pricing data from docs/superpowers/specs/2026-06-07-proposal-pricing-design.md (GBP UK
+// benchmark). It lands in the DB so proposals.ts reads rows, never inlines numbers ("nothing
+// hardcoded"). low/high = band ends; mid = rounded midpoint. Both seeds mirror upsertBrands:
+// INSERT ... ON CONFLICT DO UPDATE in BEGIN/COMMIT, ROLLBACK+throw on failure (a bad seed aborts boot
+// rather than half-populating). OVERRIDE NAMESPACE: these seeds own only the bare global pricing_config
+// keys and refresh them every boot; per-creator/tenant overrides MUST use a 'key:<tenantId>' namespace
+// and are never touched here.
+const CONTENT_RATES: { tier: string; platform: string; format: string; low: number; high: number }[] = [
+  { tier: 'nano', platform: 'instagram', format: 'post', low: 50, high: 300 },
+  { tier: 'nano', platform: 'instagram', format: 'reel', low: 80, high: 450 },
+  { tier: 'nano', platform: 'instagram', format: 'story', low: 30, high: 150 },
+  { tier: 'nano', platform: 'tiktok', format: 'video', low: 50, high: 300 },
+  { tier: 'nano', platform: 'ugc', format: 'ugc', low: 80, high: 250 },
+  { tier: 'micro', platform: 'instagram', format: 'post', low: 150, high: 800 },
+  { tier: 'micro', platform: 'instagram', format: 'reel', low: 250, high: 1200 },
+  { tier: 'micro', platform: 'instagram', format: 'story', low: 80, high: 350 },
+  { tier: 'micro', platform: 'tiktok', format: 'video', low: 150, high: 900 },
+  { tier: 'micro', platform: 'ugc', format: 'ugc', low: 150, high: 400 },
+  { tier: 'mid', platform: 'instagram', format: 'post', low: 500, high: 2500 },
+  { tier: 'mid', platform: 'instagram', format: 'reel', low: 800, high: 3500 },
+  { tier: 'mid', platform: 'instagram', format: 'story', low: 250, high: 1000 },
+  { tier: 'mid', platform: 'tiktok', format: 'video', low: 500, high: 2500 },
+  { tier: 'macro', platform: 'instagram', format: 'post', low: 2000, high: 8000 },
+  { tier: 'macro', platform: 'instagram', format: 'reel', low: 3000, high: 12000 },
+  { tier: 'macro', platform: 'instagram', format: 'story', low: 800, high: 3000 },
+  { tier: 'macro', platform: 'tiktok', format: 'video', low: 2000, high: 9000 },
+  { tier: 'mega', platform: 'instagram', format: 'post', low: 5000, high: 25000 },
+]
+const EVENT_RATES: { format: string; low: number; high: number }[] = [
+  { format: 'stage_shoutout', low: 100, high: 600 },
+  { format: 'logo_placement', low: 150, high: 1000 },
+  { format: 'booth', low: 300, high: 2000 },
+  { format: 'host_appearance', low: 500, high: 3000 },
+  { format: 'recap_package', low: 300, high: 1500 },
+]
+
+// Pricing knobs (spec-3 "Locked decisions"); defaults set now, evolve by config not code.
+const PRICING_DEFAULTS: Record<string, unknown> = {
+  take_rate: 0.15, // global default; per-creator override = key 'take_rate:<tenantId>'
+  bundle_adjustment: -0.1, // small multi-deliverable discount, applied as (1 + bundle_adjustment)
+  niche_multipliers: {
+    default: 1.0, lifestyle: 1.0, beauty: 1.1, fashion: 1.1, fitness: 1.2, food: 1.0, travel: 1.1,
+    finance: 4.0, saas: 4.0, b2b: 3.5, tech: 2.0,
+  },
+  usage_rights_uplift: { none: 0.0, organic: 0.0, paid_ads: 0.35, full_buyout: 0.5 },
+  exclusivity_uplift: { none: 0.0, '3mo': 0.15, '6mo': 0.3, '12mo': 0.5 },
+  er_curve: {
+    expected: { nano: 0.04, micro: 0.03, mid: 0.025, macro: 0.018, mega: 0.012 },
+    floor: 0.7, ceil: 1.5,
+  },
+  cpm_rails: { instagram: [5, 12], tiktok: [2, 8], youtube: [8, 15] }, // USD CPM sanity bands
+  guarantee: { threshold: 1000, window_days: 30, split: { platform: 0.5, creator: 0.5 } },
+  usd_fx_from_gbp: 1.27, // for the secondary USD card (not seeded in v1)
+  combined_reach_discount: 0.5, // 'X across socials' aggregate -> est. primary-platform-equivalent (soft; evolve by config)
+}
+
+// Seed the GBP rate cards. Re-runnable: UNIQUE(tier,platform,format,currency) + ON CONFLICT DO UPDATE.
+export function seedRateCards(): void {
+  const now = Date.now()
+  const ins = db.prepare(`
+    INSERT INTO rate_cards (tier, platform, format, low, mid, high, currency, source, updated_at)
+    VALUES (@tier, @platform, @format, @low, @mid, @high, @currency, @source, @now)
+    ON CONFLICT(tier, platform, format, currency) DO UPDATE SET
+      low = excluded.low, mid = excluded.mid, high = excluded.high,
+      source = excluded.source, updated_at = excluded.updated_at
+  `)
+  const rows = [
+    ...CONTENT_RATES,
+    ...EVENT_RATES.map((r) => ({ tier: 'event', platform: 'event', format: r.format, low: r.low, high: r.high })),
+  ]
+  db.exec('BEGIN')
+  try {
+    for (const r of rows) {
+      ins.run({
+        tier: r.tier, platform: r.platform, format: r.format,
+        low: r.low, mid: Math.round((r.low + r.high) / 2), high: r.high,
+        currency: 'GBP', source: '2026-uk-benchmark', now,
+      })
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw new Error(`seedRateCards failed: ${(e as Error).message}`, { cause: e })
+  }
+}
+
+// Seed the global pricing config defaults. Re-runnable: UNIQUE(key) + ON CONFLICT DO UPDATE.
+export function seedPricingConfig(): void {
+  const now = Date.now()
+  const ins = db.prepare(`
+    INSERT INTO pricing_config (key, value_json, updated_at)
+    VALUES (@key, @value_json, @now)
+    ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at
+  `)
+  db.exec('BEGIN')
+  try {
+    for (const [key, value] of Object.entries(PRICING_DEFAULTS)) {
+      ins.run({ key, value_json: JSON.stringify(value), now })
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw new Error(`seedPricingConfig failed: ${(e as Error).message}`, { cause: e })
+  }
+}
+
+seedRateCards()
+seedPricingConfig()
+
 export interface TenantRow {
   id: string
   email: string
@@ -471,4 +733,113 @@ export interface CampaignRow {
   ai_prompt: string | null
   ai_research_fields: string | null
   sequence: string | null
+}
+
+// --- creator-first pipeline rows ---
+
+export interface CreatorProfileRow {
+  id: number
+  tenant_id: string
+  name: string
+  instagram_handle: string | null
+  tiktok_handle: string | null
+  youtube_channel: string | null
+  website: string | null
+  bio: string | null
+  profile_data: string | null // JSON (legacy/overflow)
+  created_at: number
+  updated_at: number | null
+  creator_type: string | null // 'content' | 'events' | 'both'
+  visual_signals: string | null // JSON
+  niche: string | null
+  content_style: string | null
+  engagement_rate: number | null
+  demographics: string | null // JSON {age,gender,country,city}
+  demographics_source: string | null // 'ig_business' | 'none'
+  sectors: string | null // JSON [{category,score,reason}]
+  inferred_audience: string | null // JSON {summary, likely_buyer_sectors[], confidence}
+  past_deals: string | null // JSON [{brand,result,source}]
+  signals_used: string | null // JSON
+  summary: string | null
+  status: string | null // 'idle'|'running'|'done'|'error'
+  error: string | null
+  generated_at: number | null
+  cross_platform: string | null // JSON (Apify Tier 1.5)
+  web_signals: string | null // JSON (Exa Tier 1.6)
+}
+
+export interface CreatorBrandMatchRow {
+  id: number
+  tenant_id: string
+  creator_id: number
+  brand_id: number
+  score: number | null
+  tier: string | null
+  move: string | null // 'estimate' | 'net_new' (v1); 'comparable' phase 2
+  reason: string | null
+  evidence: string | null // JSON
+  status: string
+  created_at: number
+  updated_at: number | null
+}
+
+export interface CreatorBrandDealRow {
+  id: number
+  creator_handle: string
+  brand_id: number | null
+  brand_name: string | null
+  brand_handle: string | null
+  source: string // 'ad_library'|'sponsor_tag'|'caption'|'usertag'|'event_sponsor'
+  evidence_url: string | null
+  confidence: string | null
+  seen_at: number
+}
+
+export interface RateCardRow {
+  id: number
+  tier: string
+  platform: string
+  format: string
+  low: number | null
+  mid: number | null
+  high: number | null
+  currency: string
+  source: string
+  updated_at: number
+}
+
+export interface PricingConfigRow {
+  id: number
+  key: string
+  value_json: string // JSON
+  updated_at: number
+}
+
+export interface ProposalRow {
+  id: number
+  campaign_id: number | null
+  brand_match_id: number | null
+  creator_profile_id: number
+  tiers: string // JSON array of tier objects
+  stretch_goals: string | null // JSON array
+  status: string // 'draft'|'sent'|'viewed'|'accepted'
+  public_token: string | null
+  created_at: number
+  brand_id: number | null
+  deal_type: string | null // 'creator_pitched' | 'platform_campaign'
+  gross_price: number | null
+  creator_net: number | null
+  platform_cut: number | null
+  take_rate_applied: number | null
+  guarantee: string | null // JSON {threshold, window_ends_at, state}
+  tenant_id: string | null
+  updated_at: number | null
+}
+
+export interface ProposalCreatorRow {
+  id: number
+  proposal_id: number
+  creator_id: number
+  rate: number | null
+  status: string
 }

@@ -83,6 +83,19 @@ export async function discoverByHashtag(tag: string, cap = 30): Promise<string[]
   return [...seen]
 }
 
+// One recent post/reel, normalized from HikerAPI's (varying) media shape. Used by Creator IQ
+// (Tier 0 captions + Tier 0.5 vision over imageUrl). imageUrl is an expiring-signed CDN URL —
+// fetch it promptly during the run, never persist it.
+export type EnrichedMedia = {
+  id: string
+  caption: string
+  imageUrl: string | null // display/thumbnail URL for the vision pass (Tier 0.5)
+  isVideo: boolean
+  likes: number
+  comments: number
+  takenAt: number | null // epoch ms, for recency ordering
+}
+
 export type Enriched = {
   username: string
   fullName: string
@@ -92,14 +105,87 @@ export type Enriched = {
   publicPhone: string | null
   externalUrl: string | null
   bio: string
+  // NEW — present only when enrichHandle is called with { withMedia: true }. The existing
+  // no-opts call path (qualify.ts line ~186) never sees these keys, so it is byte-for-byte unchanged.
+  media?: EnrichedMedia[] // most-recent-first, capped at opts.mediaCount (default 12)
+  engagementRate?: number | null // mean(likes+comments)/followers over fetched media, 0..1; null if uncomputable
+  recentCaptions?: string[] // convenience: media.map(m => m.caption).filter(Boolean)
 }
 
-// HikerAPI by-username → the fields we filter and seed on.
-export async function enrichHandle(username: string): Promise<Enriched | null> {
+// mean(likes+comments) across media, divided by followers. Returns 0..1, or null when it cannot
+// be computed (no followers, or no media). Rounded to 4 dp.
+//
+// NOTE: "saves" are part of the textbook engagement-rate formula but HikerAPI media does NOT expose
+// them — we deliberately use likes+comments only (the standard public-ER proxy, matching the bench
+// fixture's avg_likes/avg_comments). We do not pretend to have saves; the omission is documented here
+// rather than fabricated as a zero.
+export function computeEngagementRate(media: EnrichedMedia[], followers: number): number | null {
+  if (!(followers > 0)) return null
+  if (!media.length) return null
+  let sum = 0
+  for (const m of media) sum += (Number(m.likes) || 0) + (Number(m.comments) || 0)
+  const mean = sum / media.length
+  const er = Math.max(0, Math.min(1, mean / followers))
+  return Math.round(er * 10000) / 10000
+}
+
+// Tolerant extraction of an image/thumbnail URL from a HikerAPI media item (shape varies by
+// endpoint/version). Reels/videos expose a thumbnail — use it.
+function mediaImageUrl(m: any): string | null {
+  return (
+    m?.thumbnail_url ||
+    m?.image_versions2?.candidates?.[0]?.url ||
+    m?.image_versions?.items?.[0]?.url ||
+    m?.display_url ||
+    m?.display_uri ||
+    (Array.isArray(m?.resources) ? m.resources[0]?.thumbnail_url ?? null : null) ||
+    null
+  )
+}
+
+// Pull a user's recent media. RISK: the bench fixtures don't cover a medias call, so the exact
+// path/params/shape are unverified against the live key — we read fields tolerantly and reuse
+// discoverByHashtag's array-extraction idiom. We do NOT wrap this in a silent try/catch: hiker()
+// throws `HikerAPI <status>` on a non-2xx and that throw propagates, so the caller (creatoriq.ts)
+// decides fatal-vs-recorded-degrade. userId is preferred (from the by-username response); username
+// is the fallback param.
+export async function fetchRecentMedia(userIdOrUsername: string, count = 12): Promise<EnrichedMedia[]> {
+  const isNumericId = /^[0-9]+$/.test(userIdOrUsername)
+  const params: Record<string, string> = isNumericId
+    ? { user_id: userIdOrUsername, amount: String(count) }
+    : { username: userIdOrUsername, amount: String(count) }
+  const data = await hiker('/v1/user/medias', params)
+  const list: any[] = Array.isArray(data) ? data : data.response ?? data.items ?? data.medias ?? []
+  const out: EnrichedMedia[] = []
+  for (const m of list) {
+    const takenSec = Number(m?.taken_at ?? m?.taken_at_ts ?? 0)
+    const mediaType = Number(m?.media_type ?? 0)
+    const productType = String(m?.product_type ?? '')
+    out.push({
+      id: String(m?.id ?? m?.pk ?? m?.code ?? ''),
+      caption: String(m?.caption_text ?? m?.caption?.text ?? '').trim(),
+      imageUrl: mediaImageUrl(m),
+      isVideo: mediaType === 2 || productType === 'clips' || !!m?.video_url || !!m?.video_versions,
+      likes: Number(m?.like_count ?? m?.likes ?? 0) || 0,
+      comments: Number(m?.comment_count ?? m?.comments ?? 0) || 0,
+      takenAt: Number.isFinite(takenSec) && takenSec > 0 ? takenSec * 1000 : null,
+    })
+  }
+  out.sort((a, b) => (b.takenAt ?? 0) - (a.takenAt ?? 0))
+  return out.slice(0, count)
+}
+
+// HikerAPI by-username → the fields we filter and seed on. With { withMedia: true } it additionally
+// fetches recent media and computes an engagement rate (Creator IQ Tier 0). Without opts it is
+// IDENTICAL to the original single-call behaviour (no extra request, no extra keys).
+export async function enrichHandle(
+  username: string,
+  opts: { withMedia?: boolean; mediaCount?: number } = {},
+): Promise<Enriched | null> {
   const d = await hiker('/v1/user/by/username', { username }).catch(() => null)
   if (!d || d.exists === false) return null
   const u = d.user ?? d
-  return {
+  const enriched: Enriched = {
     username,
     fullName: u.full_name ?? '',
     followers: Number(u.follower_count ?? 0),
@@ -109,6 +195,14 @@ export async function enrichHandle(username: string): Promise<Enriched | null> {
     externalUrl: u.external_url || null,
     bio: u.biography ?? '',
   }
+  if (opts.withMedia) {
+    const pk = String(u.pk ?? u.id ?? '') || username
+    const media = await fetchRecentMedia(pk, opts.mediaCount ?? 12)
+    enriched.media = media
+    enriched.recentCaptions = media.map((m) => m.caption).filter(Boolean)
+    enriched.engagementRate = computeEngagementRate(media, enriched.followers)
+  }
+  return enriched
 }
 
 const onlyDigits = (s: string) => (s || '').replace(/[^0-9]/g, '')

@@ -35,7 +35,10 @@ import * as pitchgen from './pitchgen.ts'
 import * as templates from './templates.ts'
 import { fetchPageText } from './ai.ts'
 import { createTenantWithGoogle } from './auth.ts'
-import { landingView, authView, dashboardView, onboardingView, startOnboardingView, sourceView, qualifyingView, brandsView } from './views.ts'
+import { landingView, authView, dashboardView, onboardingView, startOnboardingView, sourceView, qualifyingView, brandsView, creatorIqView, matchView, proposalPublicView } from './views.ts'
+import * as creatoriq from './creatoriq.ts'
+import * as brandmatch from './brandmatch.ts'
+import * as proposals from './proposals.ts'
 
 const isProd = process.env.NODE_ENV === 'production'
 const PORT = Number(process.env.PORT ?? 8080)
@@ -156,6 +159,13 @@ app.get('/', (c) => (getSessionTenant(getCookie(c, 'sid')) ? c.redirect('/outbou
 app.get('/login', (c) => c.html(authView('login')))
 app.get('/signup', (c) => c.html(authView('signup')))
 
+// Public proposal page — NO auth: the opaque token IS the access control. GROSS-ONLY rendering.
+app.get('/p/:token', (c) => {
+  const proposal = proposals.getProposalByToken(c.req.param('token'))
+  if (!proposal) return c.text('not found', 404)
+  return c.html(proposalPublicView(proposal))
+})
+
 app.post('/signup', async (c) => {
   if (limited('signup:' + ipOf(c))) return c.html(authView('signup', 'Too many attempts. Try again shortly.'), 429)
   const body = await c.req.parseBody()
@@ -199,6 +209,8 @@ app.get('/dashboard', pageAuth, (c) => c.html(onboardingView(emailOf(c.get('tena
 app.get('/outbound', pageAuth, (c) => c.html(dashboardView(emailOf(c.get('tenantId')))))
 app.get('/source', pageAuth, (c) => c.html(sourceView(emailOf(c.get('tenantId')))))
 app.get('/qualifying', pageAuth, (c) => c.html(qualifyingView(emailOf(c.get('tenantId')))))
+app.get('/creator-iq', pageAuth, (c) => c.html(creatorIqView(emailOf(c.get('tenantId')))))
+app.get('/match', pageAuth, (c) => c.html(matchView(emailOf(c.get('tenantId')))))
 app.get('/dashboard/brands', pageAuth, (c) => c.html(brandsView(emailOf(c.get('tenantId')))))
 app.get('/brands', pageAuth, (c) => c.redirect('/dashboard/brands')) // back-compat
 app.get('/api/brands', apiAuth, (c) => {
@@ -629,6 +641,90 @@ app.post('/api/qualify/lists/:id/spinoff', apiAuth, async (c) => {
   const name = (b.name && String(b.name).trim()) || `${list.name} — ${tierName} (${rows.length})`
   const newId = camp.createCsvList(tid, name, rows)
   return c.json({ ok: true, id: newId, name, count: rows.length })
+})
+
+// --- Creator IQ (stage 1): build ONE structured creator profile for this tenant ---
+// Start generation (background). The runner writes status:'error' to the row on failure, surfaced by /status.
+app.post('/api/creator-iq/generate', apiAuth, (c) => {
+  if (!creatoriq.creatorIqAvailable())
+    return c.json({ ok: false, error: 'OPENAI_API_KEY not set on the server' }, 400)
+  const tid = c.get('tenantId')
+  void creatoriq.runCreatorIq(tid).catch(() => {})
+  return c.json({ ok: true })
+})
+
+// Snapshot the FE polls (~2.5s while running): status/error/signalsUsed/demographics + profile.
+app.get('/api/creator-iq/status', apiAuth, (c) => {
+  const st = creatoriq.creatorIqStatus(c.get('tenantId'))
+  if (!st) return c.json({ ok: false, error: 'no profile' }, 404)
+  return c.json({ ok: true, ...st })
+})
+
+// --- Brand matching (stage 2): rank a shortlist of target brands for a creator profile ---
+// Creators that HAVE a profile row — the selectable input for the match page.
+app.get('/api/match/creators', apiAuth, (c) =>
+  c.json({
+    ok: true,
+    creators: brandmatch.matchableCreators(c.get('tenantId')),
+    ai: brandmatch.matchAvailable(),
+    hiker: src.hikerAvailable(),
+  }),
+)
+
+// Snapshot the ranked shortlist (404 if no profile row for this creator).
+app.get('/api/match/:creatorId/status', apiAuth, (c) => {
+  const st = brandmatch.matchStatus(c.get('tenantId'), Number(c.req.param('creatorId')))
+  if (!st) return c.json({ ok: false, error: 'no profile' }, 404)
+  return c.json({ ok: true, ...st })
+})
+
+// Run the matcher (background). The runner records errors on the run-state, surfaced by /status.
+app.post('/api/match/:creatorId/run', apiAuth, (c) => {
+  if (!brandmatch.matchAvailable())
+    return c.json({ ok: false, error: 'OPENAI_API_KEY not set on the server' }, 400)
+  void brandmatch.runMatch(c.get('tenantId'), Number(c.req.param('creatorId'))).catch(() => {})
+  return c.json({ ok: true })
+})
+
+// Mark a shortlist row selected/rejected (user action).
+app.post('/api/match/:creatorId/select', apiAuth, async (c) => {
+  const b = (await c.req.json().catch(() => ({}))) as { brandId?: number; matchId?: number; status?: string }
+  const brandId = Number(b.brandId ?? b.matchId)
+  const status = b.status === 'selected' || b.status === 'rejected' || b.status === 'suggested' ? b.status : undefined
+  if (!Number.isFinite(brandId) || !status)
+    return c.json({ ok: false, error: 'brandId and a valid status are required' }, 400)
+  const ok = brandmatch.setMatchStatus(c.get('tenantId'), Number(c.req.param('creatorId')), brandId, status)
+  if (!ok) return c.json({ ok: false, error: 'match row not found' }, 404)
+  return c.json({ ok: true })
+})
+
+// --- Proposals (stage 3): priced, brand-specific proposal with a public brand-facing page ---
+// Generate (await): pulls profile+match, packages+prices+writes prose, persists. Engine errors -> 502.
+app.post('/api/proposals/generate', apiAuth, async (c) => {
+  const b = (await c.req.json().catch(() => ({}))) as {
+    creatorProfileId?: number
+    brandMatchId?: number
+    takeRateOverride?: number | null
+  }
+  if (!Number.isFinite(Number(b.creatorProfileId)) || !Number.isFinite(Number(b.brandMatchId)))
+    return c.json({ ok: false, error: 'creatorProfileId and brandMatchId are required' }, 400)
+  try {
+    const row = await proposals.generateProposal(c.get('tenantId'), {
+      creatorProfileId: Number(b.creatorProfileId),
+      brandMatchId: Number(b.brandMatchId),
+      takeRateOverride: b.takeRateOverride ?? null,
+    })
+    return c.json({ ok: true, id: row.id, public_token: row.public_token, proposal: row })
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 502)
+  }
+})
+
+// Creator's own dashboard view — net/cut/take-rate ARE allowed here (tenant-scoped, NOT the public page).
+app.get('/api/proposals/:id', apiAuth, (c) => {
+  const row = proposals.getProposal(c.get('tenantId'), Number(c.req.param('id')))
+  if (!row) return c.json({ ok: false, error: 'not found' }, 404)
+  return c.json({ ok: true, proposal: row })
 })
 
 // --- accounts (multiple WhatsApp numbers per tenant; baileys + cloud) ---
