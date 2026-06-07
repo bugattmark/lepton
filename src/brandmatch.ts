@@ -423,7 +423,16 @@ async function reconcileSectors(sectors: string[], known: string[]): Promise<Rec
 // band"): isBusiness alone is far too permissive — IG flags creators, public figures, and media
 // (e.g. 'ABC News') as 'business' accounts, so they leak into the catalog as fake brands. A real
 // brand is a business account, in a sane follower band, with a website, and NOT a person/media category.
-const MIN_BRAND_FOLLOWERS = 2_000
+const MIN_BRAND_FOLLOWERS = 10_000
+// Positive signal: a real brand's IG category almost always contains one of these tokens
+// ('Clothing (Brand)', 'Cosmetics', 'Health/beauty', 'Retail company', 'Product/Service', ...).
+// Requiring a hint (not just "absent from a denylist") is what stops Linktree personal accounts.
+const BRAND_CATEGORY_HINTS = [
+  'brand', 'store', 'shop', 'retail', 'cosmetic', 'clothing', 'apparel', 'wear', 'beauty', 'product',
+  'company', 'boutique', 'commerce', 'label', 'goods', 'supplement', 'nutrition', 'skincare', 'haircare',
+  'jewelry', 'jewellery', 'fashion', 'accessor', 'footwear', 'active', 'fitness', 'food', 'drink',
+  'beverage', 'equestrian', 'salon', 'spa',
+]
 const NON_BRAND_CATEGORIES = new Set([
   'digital creator', 'public figure', 'blogger', 'content creator', 'personal blog', 'just for fun',
   'author', 'artist', 'musician/band', 'musician', 'video creator', 'athlete', 'influencer', 'creator',
@@ -439,10 +448,12 @@ type EnrichLike = {
 function looksLikeBrand(e: EnrichLike): boolean {
   if (!e) return false
   if (!e.isBusiness) return false
-  if ((e.followers ?? 0) < MIN_BRAND_FOLLOWERS) return false
+  if ((e.followers ?? 0) < MIN_BRAND_FOLLOWERS) return false // 10K floor drops small personal accounts
   if (!e.externalUrl) return false // a brand sells something -> almost always has a website
   const cat = (e.category ?? '').trim().toLowerCase()
-  if (cat && NON_BRAND_CATEGORIES.has(cat)) return false // clearly a person / media account, not a brand
+  if (!cat) return false // a real brand carries an IG business category
+  if (NON_BRAND_CATEGORIES.has(cat)) return false // clearly a person / media account, not a brand
+  if (!BRAND_CATEGORY_HINTS.some((h) => cat.includes(h))) return false // category must read brand-like, not personal
   return true
 }
 

@@ -532,7 +532,8 @@ export async function packageDeliverables(input: {
     `platform MUST be one of: ${platforms.join(', ')}. format MUST be one of: ${formats.join(', ')}. ` +
     `Only these exact platform/format PAIRS are priceable for this creator — use ONLY these pairs: ${pairs.join(', ')}. ` +
     `usage_rights ∈ {none, organic, paid_ads, full_buyout}. ` +
-    `exclusivity ∈ {none, '3mo', '6mo', '12mo'} or null.`
+    `exclusivity ∈ {none, '3mo', '6mo', '12mo'} or null. ` +
+    `'description' describes ONE unit of the deliverable and MUST NOT restate the count (the 'count' field carries it).`
 
   const deliverableSchema = {
     type: 'object',
