@@ -203,7 +203,8 @@ app.get('/dashboard/brands', pageAuth, (c) => c.html(brandsView(emailOf(c.get('t
 app.get('/brands', pageAuth, (c) => c.redirect('/dashboard/brands')) // back-compat
 app.get('/api/brands', apiAuth, (c) => {
   const q = c.req.query()
-  const data = brands.listBrands(c.get('tenantId'), {
+  // Shared global catalog — every tenant sees the same brands (not scoped to c.get('tenantId')).
+  const data = brands.listBrands({
     search: q.search,
     category: q.category,
     limit: q.limit ? Number(q.limit) : undefined,
@@ -211,9 +212,7 @@ app.get('/api/brands', apiAuth, (c) => {
   })
   return c.json({ ok: true, ...data })
 })
-app.get('/api/brands/categories', apiAuth, (c) =>
-  c.json({ ok: true, categories: brands.categoryFacets(c.get('tenantId')) }),
-)
+app.get('/api/brands/categories', apiAuth, (c) => c.json({ ok: true, categories: brands.categoryFacets() }))
 app.get('/app', pageAuth, (c) => c.redirect('/outbound')) // back-compat
 
 // --- onboarding (2-step intake wizard; stores per-tenant, then migrates to /dashboard) ---
@@ -1081,7 +1080,7 @@ app.post('/api/seed/bento', async (c) => {
     return c.json({ ok: false, error: 'unknown tenant' }, 400)
   const rows = Array.isArray(body.brands) ? body.brands : []
   const res = brands.upsertBrands(tenantId, rows)
-  return c.json({ ok: true, ...res, total: brands.brandCount(tenantId) })
+  return c.json({ ok: true, ...res, total: brands.brandCount() })
 })
 
 serve({ fetch: app.fetch, port: PORT }, (info) => console.log(`WA Connect listening on :${info.port}`))

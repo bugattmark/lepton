@@ -1,11 +1,12 @@
 # Brands directory — sourcing, data model & extraction
 
-The `/dashboard/brands` feature: a per-tenant directory of companies to pitch, with
-contacts, IG page, categories and location. Backed by the `brands` table (see `src/db.ts`).
+The `/dashboard/brands` feature: a **shared global directory** of companies to pitch, with
+contacts, IG page, categories and location. Every tenant sees the same catalog (it is not
+siloed per account). Backed by the `brands` table (see `src/db.ts`).
 
 ## Data model (`brands` table)
 
-One row per `(tenant_id, name)`. Stable, queryable columns for the things we filter/sort on
+One row per brand, global. Stable, queryable columns for the things we filter/sort on
 (name, instagram_handle, followers, location_*, status, source); everything richer rides in
 JSON blobs so a new source can't break the schema:
 
@@ -22,7 +23,9 @@ JSON blobs so a new source can't break the schema:
 | `source` | `hiker` \| `exa` \| `bento` \| `manual` \| `csv` |
 | `status` | `new` \| `enriching` \| `enriched` \| `contacted` \| `archived` |
 
-Dedupe key is `(tenant_id, name)`; also indexed on `(tenant_id, instagram_handle)`.
+Dedupe key is global `name` (`UNIQUE(name)`); also indexed on `instagram_handle` and
+`followers`. `tenant_id` is provenance only (who first added the brand), nullable, and
+`ON DELETE SET NULL` so the catalog survives a tenant being deleted. Reads never filter on it.
 
 ## How to source brands by category / region — HikerAPI (the defensible path)
 

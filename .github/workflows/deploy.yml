@@ -1,0 +1,59 @@
+name: Deploy to Railway
+
+# Push to main -> syntax-check gate -> deploy to Railway.
+# Setup required once (see bottom of this file):
+#   - GitHub secret  RAILWAY_TOKEN   = a Railway *project* token (Project → Settings → Tokens)
+#   - GitHub variable RAILWAY_SERVICE = the service name (optional; needed if the project has >1 service)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {} # allow manual "Run workflow" from the Actions tab
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true # a newer push supersedes an in-flight deploy
+
+jobs:
+  check:
+    name: Syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24' # matches local: Node type-stripping, no build step
+      - name: Install deps
+        run: npm ci
+      - name: Parse every source file (fail loud on syntax errors)
+        run: |
+          set -e
+          for f in $(find src -name '*.ts'); do
+            echo "checking $f"
+            node --check "$f"
+          done
+
+  deploy:
+    name: Deploy
+    needs: check # only deploy if the check gate passes
+    runs-on: ubuntu-latest
+    # Don't deploy on manual runs of a fork/PR; only the real repo's main.
+    if: github.repository == 'bugattmark/lepton'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN secret is not set. Add a Railway project token in repo Settings → Secrets → Actions."
+            exit 1
+          fi
+          if [ -n "$RAILWAY_SERVICE" ]; then
+            railway up --ci --service "$RAILWAY_SERVICE"
+          else
+            railway up --ci
+          fi
