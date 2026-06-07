@@ -19,10 +19,18 @@ const ENDPOINT = 'https://api.openai.com/v1/responses'
 
 export const pitchGenAvailable = () => !!process.env.OPENAI_API_KEY
 
-export type PitchKind = 'outreach' | 'followup'
+export type PitchKind = 'outreach' | 'followup' | 'proposal'
+
+// Structural shape of a priced tier from proposals.ts. Typed structurally (not imported) to avoid a
+// circular import — proposals.ts imports extractText/generate from here.
+export interface PitchPricedTier {
+  name: string
+  gross_price: number
+  deliverables: { type: string; count: number; description: string; in_kind?: boolean; in_kind_value?: number | null }[]
+}
 
 export interface PitchInput {
-  kind?: PitchKind // 'outreach' (default) = first message; 'followup' = the short chase
+  kind?: PitchKind // 'outreach' (default) = first message; 'followup' = the short chase; 'proposal' = priced offer
   // creator (from the onboarding profile)
   name?: string
   roles?: string[] // "who are you" — niche/role
@@ -38,6 +46,12 @@ export interface PitchInput {
   workText?: string // text fetched from the best-work URL
   // followup only: the outreach pitch this is chasing, so the follow-up can reference it.
   priorPitchBody?: string
+  // proposal only: a brand-specific, one-to-one priced artifact — NO {{placeholders}}, real values.
+  brandName?: string // REAL brand name
+  recipientName?: string // real contact, if known
+  pricedTiers?: PitchPricedTier[] // the FINISHED numbers from proposals.ts (do not alter)
+  currency?: string
+  proposalUrl?: string // the /p/:token link, if the prose should reference it
 }
 
 export interface PitchOutput {
@@ -64,6 +78,27 @@ function buildContext(input: PitchInput): string {
     lines.push(`The original pitch this follow-up is chasing (do not repeat it verbatim):\n${input.priorPitchBody.slice(0, 1500)}`)
   }
   return lines.join('\n') || '(no extra details provided)'
+}
+
+// Proposal context: REAL brand + the FINISHED priced tiers. These figures are final; the prose wraps
+// them, it never recomputes or restates them inside free text.
+function buildProposalContext(input: PitchInput): string {
+  const lines: string[] = []
+  if (input.name) lines.push(`Creator name: ${input.name}`)
+  if (input.brandName) lines.push(`Brand (use this real name, NO placeholders): ${input.brandName}`)
+  if (input.recipientName) lines.push(`Recipient name: ${input.recipientName}`)
+  if (input.proposalUrl) lines.push(`Proposal link to reference: ${input.proposalUrl}`)
+  const cur = input.currency ?? 'GBP'
+  if (input.pricedTiers?.length) {
+    lines.push('FINAL priced tiers (these prices are fixed — do not alter, recompute, or round):')
+    for (const t of input.pricedTiers) {
+      const items = t.deliverables
+        .map((d) => `${d.count}× ${d.type} (${d.description})${d.in_kind ? ' [in-kind]' : ''}`)
+        .join('; ')
+      lines.push(`  - ${t.name}: ${cur} ${t.gross_price} — ${items}`)
+    }
+  }
+  return lines.join('\n') || '(no proposal details provided)'
 }
 
 // Shared placeholder + best-work rules both kinds obey.
@@ -96,16 +131,39 @@ const TASK_FOLLOWUP =
   `Return ONLY a JSON object: {"subject": "...", "body": "..."}. The subject should read like a reply ` +
   `to the original, e.g. "Re: [Creator] x {{brand_name}}". The body is the full email with real line breaks (\\n).`
 
+// The priced proposal: a brand-specific, one-to-one artifact written AFTER the brand signals interest.
+// SKIPS COMMON_RULES entirely (no {{placeholders}} — real brand/recipient names). The prices are
+// computed deterministically upstream (proposals.ts) and passed in finished; the model writes prose
+// AROUND them and must never alter a figure. This is the one pitch kind allowed to state a price (it is
+// not a cold pitch — see the proposed pitch/CLAUDE.md "no-price = first-touch only" amendment).
+const TASK_PROPOSAL =
+  `You are writing a warm, brand-specific PRICED PROPOSAL for the creator below to send to a brand that ` +
+  `has ALREADY replied and shown interest. This is the "once I know the scope" artifact, not a cold ` +
+  `pitch.\n` +
+  `Use the REAL brand and recipient names provided. Do NOT use any {{...}} placeholder anywhere — this ` +
+  `is one-to-one, not a reusable template.\n` +
+  `The priced tiers and figures above are FINAL. Quote them exactly. Do NOT alter, recompute, round, or ` +
+  `invent any figure; write the prose AROUND the numbers (the view renders the per-tier prices itself, ` +
+  `so you do not need to repeat every figure inline). Reference the brand specifically.\n` +
+  `Follow the pitch guide's human-writing rules (no em dashes, no corporate filler, no abstract nouns, ` +
+  `varied sentence length, contractions). Unlike a cold pitch, stating price here is expected.\n\n` +
+  `Return ONLY a JSON object: {"subject": "...", "body": "..."}. The subject is brand-specific, e.g. ` +
+  `"[Creator] x [Brand] — proposal". The body is warm prose introducing the tiers, with real line ` +
+  `breaks (\\n). Do NOT paste a wall of numbers; let the tiers speak for themselves.`
+
 export async function generate(input: PitchInput): Promise<PitchOutput | null> {
   const key = process.env.OPENAI_API_KEY
   if (!key) return null
 
-  const task = input.kind === 'followup' ? TASK_FOLLOWUP : TASK_OUTREACH
+  const task =
+    input.kind === 'proposal' ? TASK_PROPOSAL : input.kind === 'followup' ? TASK_FOLLOWUP : TASK_OUTREACH
+  const contextStr =
+    input.kind === 'proposal' ? buildProposalContext(input) : `CREATOR DETAILS:\n${buildContext(input)}`
 
   const body = JSON.stringify({
     model: MODEL,
     instructions: `${GUIDE}\n\n---\n\n${task}`,
-    input: `CREATOR DETAILS:\n${buildContext(input)}`,
+    input: contextStr,
     reasoning: { effort: 'low' },
     text: {
       format: {
@@ -148,7 +206,8 @@ export async function generate(input: PitchInput): Promise<PitchOutput | null> {
 }
 
 // Pull the assistant's text out of a /v1/responses payload (output_text or nested content).
-function extractText(data: any): string {
+// Exported so proposals.ts reuses it for its own constrained packaging call (no re-implementation).
+export function extractText(data: any): string {
   if (typeof data?.output_text === 'string' && data.output_text.trim()) return data.output_text
   const out = data?.output
   if (Array.isArray(out)) {

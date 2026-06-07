@@ -844,11 +844,11 @@ function navAccount(email: string): string {
 
 // Pipeline top bar — the lead pipeline tabs (Source / Qualifying / Outbound). Brands is NOT here;
 // it lives on the dashboard nav (dashNav). Logo returns to the dashboard.
-function shellNav(email: string, active: 'source' | 'qualifying' | 'outbound'): string {
+function shellNav(email: string, active: 'source' | 'qualifying' | 'creator-iq' | 'match' | 'outbound'): string {
   const tab = (href: string, label: string, key: string) =>
     `<a href="${href}" class="ptab${active === key ? ' on' : ''}">${label}</a>`
   return `<div class="nav"><a class="brand" href="/dashboard" style="text-decoration:none"><span class="mark"></span>Lepton</a>
-     <div class="ptabs">${tab('/source', 'Source', 'source')}${tab('/qualifying', 'Qualifying', 'qualifying')}${tab('/outbound', 'Outbound', 'outbound')}</div>
+     <div class="ptabs">${tab('/source', 'Source', 'source')}${tab('/qualifying', 'Qualifying', 'qualifying')}${tab('/creator-iq', 'Creator IQ', 'creator-iq')}${tab('/match', 'Match', 'match')}${tab('/outbound', 'Outbound', 'outbound')}</div>
      ${navAccount(email)}
    </div>`
 }
@@ -1318,6 +1318,355 @@ export function qualifyingView(email: string): string {
 
        loadLists();
      </script>`,
+  )
+}
+
+// =============================================================================================
+// Creator IQ (stage 1) — generate ONE structured profile for the tenant's own creator account.
+// Polling page cloned from qualifyingView: Generate → POST generate → poll status ~2.5s →
+// render sectors / niche / engagement / demographics (or IG-connect upgrade CTA) / signals_used.
+// =============================================================================================
+export function creatorIqView(email: string): string {
+  return page(
+    'Creator IQ — Lepton',
+    shellNav(email, 'creator-iq') +
+      `<div class="wrap" style="max-width:1100px">
+       <div class="flex"><h3 style="margin:0">Creator IQ</h3>
+         <div class="row2"><span class="mono" id="ciqStatus"></span>
+           <button class="btn sm" id="ciqRun">Generate profile</button>
+         </div>
+       </div>
+       <p class="hint">Builds a structured profile of <b>your</b> creator account from your Instagram, on-camera brands and intake — and scores the <b>sectors</b> you have authority in. Stages 2 (Match) and 3 (Proposals) both read this. <span id="ciqAiNote"></span></p>
+
+       <div id="ciqErr" class="err mt" style="display:none"></div>
+
+       <!-- SUMMARY -->
+       <div id="ciqProfile" class="card mt" style="display:none">
+         <div class="flex"><h4 style="margin:0">Profile</h4><span class="mono" id="ciqGenAt" style="font-size:12px"></span></div>
+         <div class="row2 mt" style="gap:24px;flex-wrap:wrap">
+           <div><div class="hint">Niche</div><div id="ciqNiche" class="rs">—</div></div>
+           <div><div class="hint">Content style</div><div id="ciqStyle">—</div></div>
+           <div><div class="hint">Creator type</div><div id="ciqType">—</div></div>
+           <div><div class="hint">Engagement rate</div><div id="ciqER" class="rs">—</div></div>
+         </div>
+         <p id="ciqSummary" class="mt" style="margin-bottom:0"></p>
+       </div>
+
+       <!-- SECTORS -->
+       <div id="ciqSectorsWrap" class="card mt" style="display:none">
+         <h4 style="margin-top:0">Sector authority</h4>
+         <div id="ciqSectors"></div>
+         <div id="ciqOther" class="hint mt"></div>
+       </div>
+
+       <!-- DEMOGRAPHICS / IG CONNECT UPGRADE -->
+       <div id="ciqDemoWrap" class="card mt" style="display:none">
+         <h4 style="margin-top:0">Audience demographics</h4>
+         <div id="ciqDemo"></div>
+       </div>
+
+       <!-- SIGNALS USED -->
+       <div id="ciqSignalsWrap" class="card mt" style="display:none">
+         <h4 style="margin-top:0">Signals used</h4>
+         <div id="ciqSignals" class="row2" style="gap:10px;flex-wrap:wrap"></div>
+       </div>
+     </div>
+
+     <style>
+       .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid #ddd}
+       .badge.strong{background:#e8f5ec;color:#1b6b34;border-color:#bfe2c9}
+       .badge.some{background:#fff5e6;color:#9a6400;border-color:#f0d9a8}
+       .badge.none{background:#eef1f4;color:#5b6670;border-color:#dde2e7}
+       .badge.present{background:#e8f5ec;color:#1b6b34;border-color:#bfe2c9}
+       .badge.missing{background:#eef1f4;color:#5b6670;border-color:#dde2e7}
+       .badge.error{background:#fdecea;color:#b3261e;border-color:#f3c0bb}
+       .secrow{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f0f0f0}
+       .secrow .nm{font-weight:600;min-width:160px}
+       .secrow .sc{font-variant-numeric:tabular-nums;font-weight:600;min-width:36px}
+       .rs{font-variant-numeric:tabular-nums;font-weight:600}
+     </style>
+
+     <script>
+       var $=function(s){return document.querySelector(s);};
+       var J=function(u,o){return fetch(u,o).then(function(r){return r.json();}).catch(function(){return {ok:false,error:'bad response'};});};
+       var POST=function(u,b){return J(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})});};
+       var esc=function(s){return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+       var POLL=null;
+
+       function showErr(m){var e=$('#ciqErr');if(!m){e.style.display='none';e.textContent='';return;}e.style.display='';e.textContent=m;}
+
+       function renderSectors(p){
+         var w=$('#ciqSectorsWrap');var secs=(p.sectors||[]);
+         if(!secs.length){w.style.display='none';return;}
+         w.style.display='';
+         $('#ciqSectors').innerHTML=secs.map(function(s){
+           return '<div class="secrow"><span class="nm">'+esc(s.category)+'</span>'
+             +'<span class="sc">'+(s.score!=null?s.score:'—')+'</span>'
+             +'<span class="badge '+esc(s.authority||'none')+'">'+esc(s.authority||'none')+'</span>'
+             +'<span class="hint" style="flex:1">'+esc(s.reason||'')+'</span></div>';}).join('');
+         var other=(p.otherSectors||[]);
+         $('#ciqOther').textContent=other.length?('Other mentions: '+other.join(', ')):'';
+       }
+
+       function renderDemo(j){
+         var w=$('#ciqDemoWrap');var p=j.profile||{};
+         if(j.demographicsSource==='none'||!p.demographics){
+           w.style.display='';
+           var canConnect=j.igConfigured;
+           $('#ciqDemo').innerHTML='<p class="hint" style="margin-top:0">No real audience demographics yet — the profile is using <b>inferred</b> audience only.</p>'
+             +(canConnect
+                ? '<a class="btn sm" href="/connect/instagram">Connect Instagram for real demographics</a>'
+                : '<span class="hint">Instagram Business Login is not configured on this server (IG_APP_ID/SECRET).</span>');
+           return;
+         }
+         w.style.display='';
+         var d=p.demographics||{};
+         $('#ciqDemo').innerHTML='<div class="mono" style="white-space:pre-wrap">'+esc(JSON.stringify(d,null,2))+'</div>'
+           +'<p class="hint">Source: '+esc(j.demographicsSource||'')+'</p>';
+       }
+
+       function renderSignals(su){
+         var w=$('#ciqSignalsWrap');if(!su){w.style.display='none';return;}
+         w.style.display='';
+         var keys=['hiker','vision','demographics','intake','inference'];
+         $('#ciqSignals').innerHTML=keys.map(function(k){
+           var s=su[k]||{state:'missing'};
+           return '<span class="badge '+esc(s.state)+'" title="'+esc(s.detail||'')+'">'+k+': '+esc(s.state)+'</span>';}).join('');
+       }
+
+       function fetchStatus(){
+         J('/api/creator-iq/status').then(function(j){
+           if(j&&j.error==='no profile'){ $('#ciqStatus').textContent='no profile yet'; return; }
+           if(!j||!j.ok){ showErr((j&&j.error)||'failed to load status'); return; }
+           if($('#ciqAiNote'))$('#ciqAiNote').textContent=j.aiAvailable?'':'(OPENAI_API_KEY not set on server — generation will fail.)';
+           var running=(j.status==='running');
+           $('#ciqStatus').textContent=running?'● generating…':(j.status||'');
+           $('#ciqRun').textContent=running?'Generating…':'Generate profile';$('#ciqRun').disabled=running;
+           if(j.status==='error'){showErr('Generation failed: '+(j.error||'unknown error'));}else{showErr('');}
+           renderSignals(j.signalsUsed);
+           var p=j.profile;
+           if(p){
+             $('#ciqProfile').style.display='';
+             $('#ciqNiche').textContent=p.niche||'—';
+             $('#ciqStyle').textContent=p.contentStyle||'—';
+             $('#ciqType').textContent=p.creatorType||'—';
+             $('#ciqER').textContent=(p.engagementRate!=null)?((p.engagementRate*100).toFixed(2)+'%'):'—';
+             $('#ciqSummary').textContent=p.summary||'';
+             $('#ciqGenAt').textContent=p.generatedAt?new Date(p.generatedAt).toLocaleString():'';
+             renderSectors(p);
+             renderDemo(j);
+           }
+           if(running){if(!POLL)POLL=setInterval(fetchStatus,2500);}else{if(POLL){clearInterval(POLL);POLL=null;}}
+         });
+       }
+
+       $('#ciqRun').onclick=function(){showErr('');$('#ciqStatus').textContent='starting…';
+         POST('/api/creator-iq/generate',{}).then(function(j){
+           if(!j||!j.ok){showErr((j&&j.error)||'failed to start');$('#ciqStatus').textContent='';return;}
+           fetchStatus();if(!POLL)POLL=setInterval(fetchStatus,2500);});};
+
+       fetchStatus();
+     </script>`,
+  )
+}
+
+// =============================================================================================
+// Brand Match (stage 2) — pick a creator profile, Run, poll, render the ranked brand shortlist
+// with Select actions. Clones the qualifying poll loop.
+// =============================================================================================
+export function matchView(email: string): string {
+  return page(
+    'Match — Lepton',
+    shellNav(email, 'match') +
+      `<div class="wrap" style="max-width:1200px">
+       <div class="flex"><h3 style="margin:0">Brand matching</h3>
+         <div class="row2">
+           <label class="hint" for="mCreatorSel" style="margin:0">Creator</label>
+           <select id="mCreatorSel" style="width:280px"></select>
+           <button class="btn sm" id="mRun">Run match</button>
+         </div>
+       </div>
+       <p class="hint">Pick a creator profile (built in <b>Creator IQ</b>) and rank target brands by sector overlap, audience fit and brand size — seeded warm by the brands they already work with. <span id="mAiNote"></span></p>
+
+       <div id="mErr" class="err mt" style="display:none"></div>
+
+       <div id="mMeta" class="card mt" style="display:none">
+         <div class="row2" style="gap:14px;align-items:center;flex-wrap:wrap">
+           <span class="mono" id="mStatus"></span>
+           <span class="badge hot" id="mHot">hot 0</span>
+           <span class="badge warm" id="mWarm">warm 0</span>
+           <span class="badge cold" id="mCold">cold 0</span>
+           <span style="flex:1"></span>
+           <span class="badge estimate" id="mEst">estimate 0</span>
+           <span class="badge netnew" id="mNew">net-new 0</span>
+         </div>
+       </div>
+
+       <div id="mGrid" class="mt"></div>
+     </div>
+
+     <style>
+       .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid #ddd}
+       .badge.hot{background:#fdecea;color:#b3261e;border-color:#f3c0bb}
+       .badge.warm{background:#fff5e6;color:#9a6400;border-color:#f0d9a8}
+       .badge.cold{background:#eef1f4;color:#5b6670;border-color:#dde2e7}
+       .badge.estimate{background:#eef4fd;color:#1d4ed8;border-color:#c3d6f5}
+       .badge.netnew{background:#f3eefd;color:#6d28d9;border-color:#d9c9f5}
+       .badge.comparable{background:#e8f5ec;color:#1b6b34;border-color:#bfe2c9}
+       .mcard{border:1px solid #eee;border-radius:12px;padding:14px;margin-top:10px}
+       .mcard .top{display:flex;align-items:center;gap:12px}
+       .mcard .nm{font-weight:700;font-size:15px}
+       .mcard .sc{font-variant-numeric:tabular-nums;font-weight:700;font-size:18px;min-width:40px;text-align:right}
+       .mcard .reason{margin:8px 0 0;color:#444}
+       .mcard.sel{border-color:#1b6b34;background:#f5fbf7}
+       .mcard.rej{opacity:.5}
+     </style>
+
+     <script>
+       var $=function(s){return document.querySelector(s);};
+       var J=function(u,o){return fetch(u,o).then(function(r){return r.json();}).catch(function(){return {ok:false,error:'bad response'};});};
+       var POST=function(u,b){return J(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})});};
+       var esc=function(s){return (''+(s==null?'':s)).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+       var CUR=null,POLL=null;
+
+       function showErr(m){var e=$('#mErr');if(!m){e.style.display='none';e.textContent='';return;}e.style.display='';e.textContent=m;}
+
+       function loadCreators(){return J('/api/match/creators').then(function(j){
+         if(!j||!j.ok){showErr((j&&j.error)||'failed to load creators');return;}
+         if($('#mAiNote'))$('#mAiNote').textContent=j.ai?'':'(OPENAI_API_KEY not set on server — matching will fail.)';
+         var cs=j.creators||[];
+         $('#mCreatorSel').innerHTML='<option value="">— select a creator —</option>'+cs.map(function(c){
+           var lbl=(c.name||('creator '+c.id))+(c.handle?(' (@'+c.handle+')'):'');
+           return '<option value="'+c.id+'"'+(CUR==c.id?' selected':'')+'>'+esc(lbl)+'</option>';}).join('');
+         if(!cs.length){$('#mGrid').innerHTML='<p class="hint">No creator profiles yet — build one in <a href="/creator-iq">Creator IQ</a> first.</p>';}
+       });}
+
+       $('#mCreatorSel').onchange=function(){var v=$('#mCreatorSel').value;open(v?Number(v):null);};
+
+       function open(id){CUR=id;if(POLL){clearInterval(POLL);POLL=null;}showErr('');
+         $('#mMeta').style.display='none';$('#mGrid').innerHTML='';
+         if(id==null)return;fetchStatus();}
+
+       function fetchStatus(){if(CUR==null)return;
+         J('/api/match/'+CUR+'/status').then(function(j){
+           if(!j||!j.ok){showErr((j&&j.error)||'failed to load status');return;}
+           $('#mMeta').style.display='';
+           var running=(j.status==='running');
+           $('#mStatus').textContent=(running?'● ranking… ':'')+(j.scanned||0)+'/'+(j.total||0)+(j.status==='error'?' · error':'');
+           $('#mRun').textContent=running?'Running…':'Run match';$('#mRun').disabled=running;
+           if(j.status==='error')showErr('Match failed: '+(j.error||'unknown'));else showErr('');
+           var c=j.counts||{};
+           $('#mHot').textContent='hot '+(c.hot||0);$('#mWarm').textContent='warm '+(c.warm||0);$('#mCold').textContent='cold '+(c.cold||0);
+           $('#mEst').textContent='estimate '+(c.estimate||0);$('#mNew').textContent='net-new '+(c.net_new||0);
+           renderGrid(j.rows||[]);
+           if(running){if(!POLL)POLL=setInterval(fetchStatus,2500);}else{if(POLL){clearInterval(POLL);POLL=null;}}
+         });}
+
+       function renderGrid(rows){
+         if(!rows.length){$('#mGrid').innerHTML='<p class="hint">No shortlist yet — click Run match.</p>';return;}
+         $('#mGrid').innerHTML=rows.map(function(r){
+           var cls='mcard'+(r.status==='selected'?' sel':'')+(r.status==='rejected'?' rej':'');
+           var moveBadge=r.move?('<span class="badge '+(r.move==='net_new'?'netnew':esc(r.move))+'">'+(r.move==='net_new'?'net-new':esc(r.move))+'</span>'):'';
+           var tierBadge=r.tier?('<span class="badge '+esc(r.tier)+'">'+esc(r.tier)+'</span>'):'';
+           var sub=[];if(r.instagram_handle)sub.push('@'+esc(r.instagram_handle));if(r.followers!=null)sub.push(Number(r.followers).toLocaleString()+' followers');if(r.location_country)sub.push(esc(r.location_country));
+           return '<div class="'+cls+'" data-bid="'+r.brand_id+'">'
+             +'<div class="top"><span class="nm">'+esc(r.name||('brand '+r.brand_id))+'</span>'+tierBadge+moveBadge
+             +'<span style="flex:1"></span><span class="sc">'+(r.score!=null?r.score:'—')+'</span></div>'
+             +'<div class="hint">'+sub.join(' · ')+'</div>'
+             +(r.reason?'<p class="reason">'+esc(r.reason)+'</p>':'')
+             +'<div class="row2 mt"><button class="btn ghost sm jsel" data-bid="'+r.brand_id+'">'+(r.status==='selected'?'Selected ✓':'Select')+'</button>'
+             +'<button class="btn ghost sm jrej" data-bid="'+r.brand_id+'">'+(r.status==='rejected'?'Rejected':'Reject')+'</button></div>'
+             +'</div>';}).join('');
+         Array.prototype.forEach.call(document.querySelectorAll('.jsel'),function(b){b.onclick=function(){setStatus(b.getAttribute('data-bid'),'selected');};});
+         Array.prototype.forEach.call(document.querySelectorAll('.jrej'),function(b){b.onclick=function(){setStatus(b.getAttribute('data-bid'),'rejected');};});
+       }
+
+       function setStatus(brandId,status){if(CUR==null)return;
+         POST('/api/match/'+CUR+'/select',{brandId:Number(brandId),status:status}).then(function(j){
+           if(!j||!j.ok){showErr((j&&j.error)||'failed to update');return;}fetchStatus();});}
+
+       $('#mRun').onclick=function(){if(CUR==null){showErr('Pick a creator first.');return;}showErr('');$('#mStatus').textContent='starting…';
+         POST('/api/match/'+CUR+'/run',{}).then(function(j){
+           if(!j||!j.ok){showErr((j&&j.error)||'failed to start');$('#mStatus').textContent='';return;}
+           fetchStatus();if(!POLL)POLL=setInterval(fetchStatus,2500);});};
+
+       loadCreators();
+     </script>`,
+  )
+}
+
+// =============================================================================================
+// Public proposal page (/p/:token) — brand-facing, GROSS-ONLY. NEVER renders creator_net,
+// platform_cut, take_rate_applied, guarantee internals or cpmWarning. Server-rendered (no auth,
+// the token is the access control). `proposal` is a ProposalRow; its `tiers` column is
+// JSON.stringify({ tiers: PricedTier[], prose: {subject?, body} }).
+// =============================================================================================
+export function proposalPublicView(proposal: {
+  tiers: string | null
+  gross_price: number | null
+  status?: string | null
+}): string {
+  let parsed: { tiers?: any[]; prose?: { subject?: string; body?: string } } = {}
+  try {
+    parsed = proposal.tiers ? JSON.parse(proposal.tiers) : {}
+  } catch {
+    parsed = {}
+  }
+  const tiers = Array.isArray(parsed.tiers) ? parsed.tiers : []
+  const prose = parsed.prose ?? {}
+  const esc = (s: unknown) =>
+    String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
+  const money = (n: unknown) => (typeof n === 'number' ? n.toLocaleString() : '—')
+
+  const tierCards = tiers
+    .map((t: any) => {
+      const dels = Array.isArray(t.deliverables) ? t.deliverables : []
+      const stretch = Array.isArray(t.stretchGoals) ? t.stretchGoals : []
+      // GROSS ONLY — deliberately ignore t.creator_net / t.platform_cut / t.take_rate_applied / t.cpm / t.cpmWarning
+      const delList = dels
+        .map(
+          (d: any) =>
+            `<li><b>${esc(d.count ?? 1)}×</b> ${esc(d.description || d.format || d.type)}${d.in_kind ? ' <span class="ik">(in-kind)</span>' : ''}</li>`,
+        )
+        .join('')
+      const stretchList = stretch.length
+        ? `<div class="stretch"><div class="lbl">Stretch goals</div><ul>${stretch
+            .map((s: any) => `<li>${esc(s.description || s.metric)}</li>`)
+            .join('')}</ul></div>`
+        : ''
+      return `<div class="ptier">
+          <div class="ptop"><div class="pname">${esc(t.name || 'Package')}</div><div class="pprice">${esc((prose as any).currency || '')} ${money(t.gross_price)}</div></div>
+          <ul class="pdels">${delList || '<li class="hint">—</li>'}</ul>
+          ${stretchList}
+        </div>`
+    })
+    .join('')
+
+  const bodyHtml = esc(prose.body || '').replace(/\n/g, '<br>')
+
+  return page(
+    'Proposal',
+    `<div class="nav"><span class="brand"><span class="mark"></span>Lepton</span></div>
+     <div class="wrap" style="max-width:820px">
+       ${prose.subject ? `<h2 style="margin-bottom:6px">${esc(prose.subject)}</h2>` : '<h2 style="margin-bottom:6px">Your proposal</h2>'}
+       ${bodyHtml ? `<div class="pbody">${bodyHtml}</div>` : ''}
+       <div class="ptiers mt">${tierCards || '<p class="hint">No packages on this proposal yet.</p>'}</div>
+       <p class="hint mt">Prices are gross and based on current market rates.</p>
+     </div>
+     <style>
+       .pbody{color:#333;line-height:1.55;margin:14px 0 8px}
+       .ptiers{display:grid;gap:14px}
+       .ptier{border:1px solid #e6e6e6;border-radius:14px;padding:18px}
+       .ptop{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid #f0f0f0;padding-bottom:10px}
+       .pname{font-weight:700;font-size:17px}
+       .pprice{font-weight:800;font-size:20px;font-variant-numeric:tabular-nums}
+       .pdels{margin:12px 0 0;padding-left:20px}
+       .pdels li{margin:4px 0}
+       .ik{color:#777;font-size:12px}
+       .stretch{margin-top:12px;border-top:1px dashed #eee;padding-top:10px}
+       .stretch .lbl{font-weight:600;font-size:13px;color:#555}
+       .stretch ul{margin:6px 0 0;padding-left:20px}
+     </style>`,
   )
 }
 
