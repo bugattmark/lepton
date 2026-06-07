@@ -15,7 +15,7 @@ a{color:inherit}
 .wrap{max-width:920px;margin:0 auto;padding:24px}
 .nav{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:18px 24px}
 .brand{font-weight:700;letter-spacing:-.02em;font-size:18px}
-.ptabs{display:flex;gap:4px}
+.ptabs{display:flex;gap:4px;flex:1;justify-content:center}
 .ptab{padding:8px 16px;border-radius:8px;font-weight:600;font-size:14px;color:var(--muted);text-decoration:none}
 .ptab:hover{background:#f4f4f4;color:#000}
 .ptab.on{background:#000;color:#fff}
@@ -842,27 +842,31 @@ function navAccount(email: string): string {
      </div>`
 }
 
-// Pipeline top bar — the lead pipeline tabs (Source / Qualifying / Outbound). Brands is NOT here;
-// it lives on the dashboard nav (dashNav). Logo returns to the dashboard.
-function shellNav(email: string, active: 'source' | 'qualifying' | 'creator-iq' | 'match' | 'outbound'): string {
-  const tab = (href: string, label: string, key: string) =>
-    `<a href="${href}" class="ptab${active === key ? ' on' : ''}">${label}</a>`
+// One unified top bar — every page (dashboard home, the lead pipeline, and the Brands directory)
+// shares the same evenly-spaced tab row. Logo returns to the dashboard.
+type NavKey = 'dashboard' | 'source' | 'qualifying' | 'creator-iq' | 'match' | 'outbound' | 'brands'
+const NAV_TABS: { href: string; label: string; key: NavKey }[] = [
+  { href: '/dashboard', label: 'Dashboard', key: 'dashboard' },
+  { href: '/source', label: 'Source', key: 'source' },
+  { href: '/qualifying', label: 'Qualifying', key: 'qualifying' },
+  { href: '/creator-iq', label: 'Creator IQ', key: 'creator-iq' },
+  { href: '/match', label: 'Match', key: 'match' },
+  { href: '/outbound', label: 'Outbound', key: 'outbound' },
+  { href: '/dashboard/brands', label: 'Brands', key: 'brands' },
+]
+function shellNav(email: string, active: NavKey): string {
+  const tabs = NAV_TABS.map(
+    (t) => `<a href="${t.href}" class="ptab${active === t.key ? ' on' : ''}">${t.label}</a>`,
+  ).join('')
   return `<div class="nav"><a class="brand" href="/dashboard" style="text-decoration:none"><span class="mark"></span>Lepton</a>
-     <div class="ptabs">${tab('/source', 'Source', 'source')}${tab('/qualifying', 'Qualifying', 'qualifying')}${tab('/creator-iq', 'Creator IQ', 'creator-iq')}${tab('/match', 'Match', 'match')}${tab('/outbound', 'Outbound', 'outbound')}</div>
+     <div class="ptabs">${tabs}</div>
      ${navAccount(email)}
    </div>`
 }
 
-// Dashboard top bar — the dashboard home + the Brands directory live here, separate from the
-// pipeline tabs above.
-function dashNav(email: string, active: 'dashboard' | 'brands'): string {
-  const tab = (href: string, label: string, key: string) =>
-    `<a href="${href}" class="ptab${active === key ? ' on' : ''}">${label}</a>`
-  return `<div class="nav"><a class="brand" href="/dashboard" style="text-decoration:none"><span class="mark"></span>Lepton</a>
-     <div class="ptabs">${tab('/dashboard', 'Dashboard', 'dashboard')}${tab('/dashboard/brands', 'Brands', 'brands')}</div>
-     ${navAccount(email)}
-   </div>`
-}
+// Back-compat alias: the dashboard + brands pages used to render a separate bar. They now share the
+// single unified nav above.
+const dashNav = shellNav
 
 export function brandsView(email: string): string {
   return page(
