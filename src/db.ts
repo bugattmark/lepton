@@ -1,6 +1,10 @@
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
+// Boot-seed the curated brand-catalog floor (see brandseed.ts). Safe circular import: brandseed ->
+// brands.ts -> db.ts, but none touch `db` at module top-level, and seedStarterBrands() is called only
+// after the schema exists below, by which point `db` is initialised.
+import { seedStarterBrands } from './brandseed.ts'
 
 const DB_PATH = process.env.DB_PATH ?? './data/app.db'
 mkdirSync(dirname(DB_PATH), { recursive: true })
@@ -587,6 +591,7 @@ export function seedPricingConfig(): void {
 
 seedRateCards()
 seedPricingConfig()
+seedStarterBrands() // curated brand-catalog floor (idempotent) — makes a fresh deploy / Railway volume usable
 
 export interface TenantRow {
   id: string
