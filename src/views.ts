@@ -250,6 +250,7 @@ export function onboardingView(email: string): string {
            </div>
          </div>
 
+         <div id="aiFields">
          <div class="pch-lbl">Tell us about yourself <span class="req">*</span></div>
          <div class="pf-dd" id="ddAbout">
            <button type="button" class="pf-dd-btn">
@@ -280,6 +281,7 @@ export function onboardingView(email: string): string {
            </div>
          </div>
          <div class="pch-inp" id="workLink"><span class="pch-pre">https://</span><input type="text" id="workUrl" placeholder="www.instagram.com/p/your-post-id"></div>
+         </div><!--/aiFields-->
 
          <div class="pch-foot">
            <button class="pch-back" id="pchBack">BACK</button>
@@ -524,14 +526,16 @@ export function onboardingView(email: string): string {
          });
          initDD('ddWork');
          var cards=bd.querySelectorAll('.pch-card');
-         cards.forEach(function(c){c.addEventListener('click',function(){cards.forEach(function(x){x.classList.remove('sel');});c.classList.add('sel');});});
+         cards.forEach(function(c){c.addEventListener('click',function(){cards.forEach(function(x){x.classList.remove('sel');});c.classList.add('sel');syncMode();});});
          function chosenMode(){var s=bd.querySelector('.pch-card.sel');return s?s.getAttribute('data-v'):'ai';}
+         // "Write my own" starts from scratch — hide the AI-only inputs (about yourself / best work).
+         function syncMode(){var own=chosenMode()==='own';var fld=document.getElementById('aiFields');if(fld)fld.style.display=own?'none':'block';}
          // The same modal drives both the pitch (outreach) and the follow-up flows; the kind decides
          // the heading, which generate endpoint to call, and which template type to open after.
          var kind='outreach';
          var CFG={outreach:{h:'How do you want to write your pitch?',ep:'/api/onboarding/generate-pitch',noun:'pitch'},
                   followup:{h:'How do you want to write your follow-up?',ep:'/api/onboarding/generate-followup',noun:'follow-up'}};
-         function open(k){kind=(k==='followup')?'followup':'outreach';var h=document.getElementById('pchH');if(h)h.textContent=CFG[kind].h;bd.style.display='flex';}
+         function open(k){kind=(k==='followup')?'followup':'outreach';var h=document.getElementById('pchH');if(h)h.textContent=CFG[kind].h;syncMode();bd.style.display='flex';}
          function close(){bd.style.display='none';}
          var t=document.getElementById('obPitch');if(t)t.addEventListener('click',function(e){e.preventDefault();open('outreach');});
          var f=document.getElementById('obFollowup');if(f)f.addEventListener('click',function(e){e.preventDefault();open('followup');});

@@ -187,11 +187,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_lead_lists_tenant ON lead_lists(tenant_id);
 
   -- Brand directory: discoverable companies to pitch (the /dashboard/brands page).
-  -- One row per (tenant, brand). Contact + IG + socials live in JSON blobs so a source
-  -- can capture everything it returns without churning the schema.
+  -- SHARED GLOBAL CATALOG — one row per brand, visible to every tenant (not siloed per
+  -- account). tenant_id is provenance only (who first added it) and is nullable with
+  -- ON DELETE SET NULL so the catalog survives a tenant being deleted. Dedupe is global on
+  -- name. Contact + IG + socials live in JSON blobs so a source can capture everything it
+  -- returns without churning the schema.
   CREATE TABLE IF NOT EXISTS brands (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-    tenant_id          TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_id          TEXT REFERENCES tenants(id) ON DELETE SET NULL, -- provenance (nullable); catalog is shared
     name               TEXT NOT NULL,
     logo_url           TEXT,
     instagram_handle   TEXT,                  -- without '@'
@@ -213,10 +216,10 @@ db.exec(`
     status             TEXT NOT NULL DEFAULT 'new',     -- 'new'|'enriching'|'enriched'|'contacted'|'archived'
     created_at         INTEGER NOT NULL,
     updated_at         INTEGER NOT NULL,
-    UNIQUE(tenant_id, name)
+    UNIQUE(name)
   );
-  CREATE INDEX IF NOT EXISTS idx_brands_tenant ON brands(tenant_id);
-  CREATE INDEX IF NOT EXISTS idx_brands_handle ON brands(tenant_id, instagram_handle);
+  CREATE INDEX IF NOT EXISTS idx_brands_handle ON brands(instagram_handle);
+  CREATE INDEX IF NOT EXISTS idx_brands_followers ON brands(followers);
 
   -- Onboarding state, one row per tenant. The /start-onboarding wizard writes here;
   -- the /dashboard reads it (shared contract). intake_* = the 2-step intake answers;
@@ -254,6 +257,74 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_templates_tenant ON templates(tenant_id, type);
 `)
+
+// --- migration: make the brands directory a SHARED GLOBAL catalog ---
+// The original brands table siloed rows per tenant (UNIQUE(tenant_id,name) + tenant_id NOT
+// NULL ON DELETE CASCADE), so each account saw only its own brands and deleting a tenant
+// would wipe the catalog. Rebuild in place to the global schema: tenant_id nullable
+// (provenance, ON DELETE SET NULL) and dedupe UNIQUE(name). Detected by the old UNIQUE so it
+// runs exactly once; fails loud (throws) if the rebuild can't complete.
+{
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='brands'").get() as
+    | { sql?: string }
+    | undefined
+  const ddl = row?.sql ?? ''
+  if (/UNIQUE\s*\(\s*tenant_id\s*,\s*name\s*\)/i.test(ddl)) {
+    // FK enforcement must be off while we drop/rename a table other rows reference.
+    db.exec('PRAGMA foreign_keys = OFF')
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+        CREATE TABLE brands_new (
+          id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+          tenant_id          TEXT REFERENCES tenants(id) ON DELETE SET NULL,
+          name               TEXT NOT NULL,
+          logo_url           TEXT,
+          instagram_handle   TEXT,
+          instagram_url      TEXT,
+          followers          INTEGER,
+          website            TEXT,
+          email              TEXT,
+          phone              TEXT,
+          description        TEXT,
+          location_city      TEXT,
+          location_region    TEXT,
+          location_country   TEXT,
+          categories         TEXT,
+          socials            TEXT,
+          contacts           TEXT,
+          enrichment         TEXT,
+          source             TEXT NOT NULL DEFAULT 'manual',
+          source_ref         TEXT,
+          status             TEXT NOT NULL DEFAULT 'new',
+          created_at         INTEGER NOT NULL,
+          updated_at         INTEGER NOT NULL,
+          UNIQUE(name)
+        );
+        INSERT INTO brands_new (
+          id, tenant_id, name, logo_url, instagram_handle, instagram_url, followers, website,
+          email, phone, description, location_city, location_region, location_country,
+          categories, socials, contacts, enrichment, source, source_ref, status, created_at, updated_at
+        )
+        SELECT
+          id, tenant_id, name, logo_url, instagram_handle, instagram_url, followers, website,
+          email, phone, description, location_city, location_region, location_country,
+          categories, socials, contacts, enrichment, source, source_ref, status, created_at, updated_at
+        FROM brands;
+        DROP TABLE brands;
+        ALTER TABLE brands_new RENAME TO brands;
+        CREATE INDEX IF NOT EXISTS idx_brands_handle ON brands(instagram_handle);
+        CREATE INDEX IF NOT EXISTS idx_brands_followers ON brands(followers);
+      `)
+      db.exec('COMMIT')
+    } catch (e) {
+      db.exec('ROLLBACK')
+      throw new Error(`brands shared-catalog migration failed: ${(e as Error).message}`, { cause: e })
+    } finally {
+      db.exec('PRAGMA foreign_keys = ON')
+    }
+  }
+}
 
 export interface TenantRow {
   id: string

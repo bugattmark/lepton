@@ -1,7 +1,8 @@
-// Brands directory persistence (see BRANDS.md). One row per (tenant_id, name).
-// upsertBrand is the single write path — used by the onbento seed ingest and any future
-// brand source (hiker/exa/csv). It merges on the UNIQUE(tenant_id, name) constraint so a
-// re-run updates in place instead of duplicating.
+// Brands directory persistence (see BRANDS.md). SHARED GLOBAL catalog — one row per brand,
+// visible to every tenant. upsertBrands is the single write path — used by the onbento seed
+// ingest and any future brand source (hiker/exa/csv). It merges on the UNIQUE(name)
+// constraint so a re-run (from any tenant) updates in place instead of duplicating.
+// tenant_id is provenance only (who first added the brand); reads never filter on it.
 import { db } from './db.ts'
 
 // Normalized brand shape every source produces before it hits the DB.
@@ -33,8 +34,10 @@ export interface UpsertResult {
   updated: number
 }
 
-// Insert or merge a batch of brands for one tenant. COALESCE keeps any existing non-null
-// value when an incoming field is null, so a thinner later source never wipes richer data.
+// Insert or merge a batch of brands into the shared catalog. COALESCE keeps any existing
+// non-null value when an incoming field is null, so a thinner later source never wipes richer
+// data. tenantId records who added each brand (provenance); on conflict the original adder is
+// kept. Dedupe is global on name, so two tenants seeding the same brand merge into one row.
 export function upsertBrands(tenantId: string, brands: BrandInput[]): UpsertResult {
   const now = Date.now()
   const res: UpsertResult = { inserted: 0, updated: 0 }
@@ -49,7 +52,8 @@ export function upsertBrands(tenantId: string, brands: BrandInput[]): UpsertResu
       @email, @phone, @description, @location_city, @location_region, @location_country,
       @categories, @socials, @contacts, @enrichment, @source, @source_ref, 'new', @now, @now
     )
-    ON CONFLICT(tenant_id, name) DO UPDATE SET
+    ON CONFLICT(name) DO UPDATE SET
+      tenant_id        = COALESCE(brands.tenant_id, excluded.tenant_id), -- keep original adder (provenance)
       logo_url         = COALESCE(excluded.logo_url, brands.logo_url),
       instagram_handle = COALESCE(excluded.instagram_handle, brands.instagram_handle),
       instagram_url    = COALESCE(excluded.instagram_url, brands.instagram_url),
@@ -70,13 +74,13 @@ export function upsertBrands(tenantId: string, brands: BrandInput[]): UpsertResu
       updated_at       = @now
   `)
 
-  const exists = db.prepare('SELECT 1 FROM brands WHERE tenant_id = ? AND name = ?')
+  const exists = db.prepare('SELECT 1 FROM brands WHERE name = ?')
   db.exec('BEGIN')
   try {
     for (const b of brands) {
       const name = (b.name ?? '').trim()
       if (!name) continue
-      const before = exists.get(tenantId, name)
+      const before = exists.get(name)
       insert.run({
         tenant_id: tenantId,
         name,
@@ -110,8 +114,9 @@ export function upsertBrands(tenantId: string, brands: BrandInput[]): UpsertResu
   return res
 }
 
-export function brandCount(tenantId: string): number {
-  return (db.prepare('SELECT COUNT(*) c FROM brands WHERE tenant_id = ?').get(tenantId) as { c: number }).c
+// Total brands in the shared catalog (global; not tenant-scoped).
+export function brandCount(): number {
+  return (db.prepare('SELECT COUNT(*) c FROM brands').get() as { c: number }).c
 }
 
 const parseJson = (s: unknown) => {
@@ -123,17 +128,17 @@ const parseJson = (s: unknown) => {
   }
 }
 
-// Paged, searchable list for the /brands directory page. Highest-follower brands first
-// (SQLite sorts NULL followers last under DESC). Search matches name / handle / website / country.
+// Paged, searchable list for the /brands directory page over the shared catalog. Highest-
+// follower brands first (SQLite sorts NULL followers last under DESC). Search matches name /
+// handle / website / country.
 export function listBrands(
-  tenantId: string,
   opts: { search?: string; category?: string; limit?: number; offset?: number } = {},
 ): { total: number; brands: Record<string, unknown>[] } {
   const limit = Math.min(Math.max(opts.limit ?? 60, 1), 200)
   const offset = Math.max(opts.offset ?? 0, 0)
   const q = (opts.search ?? '').trim()
-  const where = ['tenant_id = ?']
-  const args: unknown[] = [tenantId]
+  const where: string[] = []
+  const args: unknown[] = []
   if (q) {
     where.push('(name LIKE ? OR instagram_handle LIKE ? OR website LIKE ? OR location_country LIKE ?)')
     const like = `%${q}%`
@@ -145,14 +150,14 @@ export function listBrands(
     where.push('categories LIKE ?')
     args.push(`%"${cat.replace(/["%_]/g, '')}"%`)
   }
-  const whereSql = where.join(' AND ')
-  const total = (db.prepare(`SELECT COUNT(*) c FROM brands WHERE ${whereSql}`).get(...args) as { c: number }).c
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
+  const total = (db.prepare(`SELECT COUNT(*) c FROM brands ${whereSql}`).get(...args) as { c: number }).c
   const rows = db
     .prepare(
       `SELECT id, name, logo_url, instagram_handle, instagram_url, followers, website, email,
               description, location_city, location_region, location_country, categories, socials,
               contacts, source, status
-       FROM brands WHERE ${whereSql}
+       FROM brands ${whereSql}
        ORDER BY followers DESC, name ASC LIMIT ? OFFSET ?`,
     )
     .all(...args, limit, offset) as Record<string, unknown>[]
@@ -167,10 +172,10 @@ export function listBrands(
 
 // Distinct category names (main + secondary) with brand counts, for the filter UI.
 // Sorted by count desc. Computed in JS since categories is stored as a JSON blob.
-export function categoryFacets(tenantId: string): { name: string; count: number }[] {
+export function categoryFacets(): { name: string; count: number }[] {
   const rows = db
-    .prepare('SELECT categories FROM brands WHERE tenant_id = ? AND categories IS NOT NULL')
-    .all(tenantId) as { categories: string }[]
+    .prepare('SELECT categories FROM brands WHERE categories IS NOT NULL')
+    .all() as { categories: string }[]
   const counts = new Map<string, number>()
   for (const r of rows) {
     const c = parseJson(r.categories) as { main?: string[]; secondary?: string[] } | null
