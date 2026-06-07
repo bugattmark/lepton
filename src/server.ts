@@ -3,6 +3,9 @@ import { Hono } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { secureHeaders } from 'hono/secure-headers'
 import { randomBytes } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import QRCode from 'qrcode'
 import { db } from './db.ts'
 import {
@@ -35,7 +38,7 @@ import * as pitchgen from './pitchgen.ts'
 import * as templates from './templates.ts'
 import { fetchPageText } from './ai.ts'
 import { createTenantWithGoogle } from './auth.ts'
-import { landingView, authView, dashboardView, onboardingView, startOnboardingView, sourceView, qualifyingView, brandsView, creatorIqView, matchView, proposalPublicView } from './views.ts'
+import { landingView, authView, dashboardView, onboardingView, startOnboardingView, sourceView, qualifyingView, brandsView, creatorIqView, matchView, proposalPublicView, demoView } from './views.ts'
 import * as creatoriq from './creatoriq.ts'
 import * as brandmatch from './brandmatch.ts'
 import * as proposals from './proposals.ts'
@@ -158,6 +161,37 @@ const emailOf = (tenantId: string) =>
 app.get('/', (c) => (getSessionTenant(getCookie(c, 'sid')) ? c.redirect('/outbound') : c.html(landingView())))
 app.get('/login', (c) => c.html(authView('login')))
 app.get('/signup', (c) => c.html(authView('signup')))
+
+// --- public demo video, self-hosted (video.lepton.live forwards here) ---
+// The branded player page at /demo + the MP4 streamed from /demo/video.mp4 with HTTP Range
+// support so the browser can seek. File is bundled in src/static (see scripts/transcode).
+const DEMO_VIDEO = join(dirname(fileURLToPath(import.meta.url)), 'static', 'lepton-demo.mp4')
+// Loaded once into memory (17MB) on first hit. Serving a complete in-memory body (not a
+// streamed ReadableStream) is what the browser <video> element wants — a streamed body stalls
+// its incremental MP4 parser even though plain fetch() reads it fine.
+let DEMO_BUF: Buffer | null = null
+const demoBuf = (): Buffer => (DEMO_BUF ??= readFileSync(DEMO_VIDEO)) // throws loudly if asset missing
+app.get('/demo', (c) => c.html(demoView()))
+app.get('/demo/video.mp4', (c) => {
+  const buf = demoBuf()
+  const total = buf.length
+  const baseHeaders = { 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Cache-Control': 'public, max-age=3600' }
+  const range = c.req.header('range')
+  if (range) {
+    const m = /bytes=(\d*)-(\d*)/.exec(range)
+    const start = m && m[1] ? parseInt(m[1], 10) : 0
+    const end = m && m[2] ? parseInt(m[2], 10) : total - 1
+    if (Number.isNaN(start) || Number.isNaN(end) || start > end || end >= total)
+      return c.body(null, 416, { 'Content-Range': `bytes */${total}` })
+    const slice = buf.subarray(start, end + 1)
+    return c.body(slice, 206, {
+      ...baseHeaders,
+      'Content-Range': `bytes ${start}-${end}/${total}`,
+      'Content-Length': String(slice.length),
+    })
+  }
+  return c.body(buf, 200, { ...baseHeaders, 'Content-Length': String(total) })
+})
 
 // Public proposal page — NO auth: the opaque token IS the access control. GROSS-ONLY rendering.
 app.get('/p/:token', (c) => {

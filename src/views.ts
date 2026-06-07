@@ -2177,3 +2177,25 @@ export function dashboardView(email: string): string {
      </script>`,
   )
 }
+
+// Public, self-hosted demo player. video.lepton.live forwards here. Dark, branded, single
+// 16:9 player streamed from /demo/video.mp4 (preload=metadata so we don't pull 17MB until play).
+export function demoView(): string {
+  return page(
+    'Lepton — Demo',
+    `<div style="min-height:100vh;background:#0a0a0a;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Helvetica,Arial,sans-serif">
+       <a href="/" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:#fff;font-weight:700;font-size:20px;letter-spacing:-.02em;margin-bottom:26px">
+         <span style="display:inline-block;width:16px;height:16px;border:2px solid #fff;border-radius:50%"></span>Lepton
+       </a>
+       <h1 style="font-size:clamp(24px,4vw,40px);letter-spacing:-.03em;text-align:center;margin:0 0 10px">See Lepton in action</h1>
+       <p style="color:#9a9a9a;text-align:center;max-width:560px;margin:0 0 26px;font-size:16px">AI outbound for brand deals — sourcing, pitching and follow-up on autopilot.</p>
+       <div style="width:100%;max-width:900px;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.55)">
+         <video src="/demo/video.mp4" controls playsinline preload="metadata" style="width:100%;height:100%;display:block;background:#000"></video>
+       </div>
+       <div style="margin-top:26px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+         <a href="/signup" style="background:#fff;color:#000;border-radius:10px;padding:12px 22px;font-weight:600;text-decoration:none">Get started</a>
+         <a href="/" style="background:transparent;color:#fff;border:1px solid #333;border-radius:10px;padding:12px 22px;font-weight:600;text-decoration:none">Back to site</a>
+       </div>
+     </div>`,
+  )
+}
