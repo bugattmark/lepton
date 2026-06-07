@@ -37,8 +37,7 @@ export type SourcingConfig = {
 
 export const DEFAULT_INSTRUCTION =
   'Find the organiser’s own UK mobile (+447…) for WhatsApp outreach. Check their site’s ' +
-  'contact page and directories (OpenTable, Eventbrite, Yell, Facebook About, Companies House). ' +
-  'Reject venue/box-office/ticketing lines. If none confidently found, output none.'
+  'contact page and directories. If none confidently found, output none.'
 
 export function defaultConfig(niche: string, hashtags: string[]): SourcingConfig {
   return {
