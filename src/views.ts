@@ -196,7 +196,7 @@ export function onboardingView(email: string): string {
            <div class="ob-ico">${icoSet(pencilIcon)}</div>
            <div class="ob-body">
              <div class="ob-title">Create Your Pitch Template <span class="ob-tag"></span></div>
-             <p class="ob-desc">Write the email Bento sends to brands. Strong templates roughly 3x your reply rate.</p>
+             <p class="ob-desc">Write the email Lepton sends to brands. Strong templates roughly 3x your reply rate.</p>
              <a class="ob-btn" href="#" id="obPitch">CREATE TEMPLATE <span class="ob-arrow">→</span></a>
            </div>
          </div>
@@ -205,7 +205,7 @@ export function onboardingView(email: string): string {
            <div class="ob-ico">${icoSet(fileIcon)}</div>
            <div class="ob-body">
              <div class="ob-title">Create Follow-Up Template <span class="ob-tag"></span></div>
-             <p class="ob-desc">Most replies come from follow-ups — set this up once and Bento sends them automatically.</p>
+             <p class="ob-desc">Most replies come from follow-ups — set this up once and Lepton sends them automatically.</p>
              <a class="ob-btn" href="#" id="obFollowup">CREATE TEMPLATE <span class="ob-arrow">→</span></a>
            </div>
          </div>
@@ -238,7 +238,7 @@ export function onboardingView(email: string): string {
              <span class="pch-card-mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
              <span class="pch-card-radio"></span>
              <div class="pch-card-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4"/><path d="m13 7 6 6L7 21l-2-2L13 7z"/><path d="m16 4 1 1"/></svg></div>
-             <div class="pch-card-t">Bento writes it</div>
+             <div class="pch-card-t">Lepton writes it</div>
              <div class="pch-card-d">AI draft, fully editable</div>
            </div>
            <div class="pch-card" data-v="own">
@@ -364,20 +364,20 @@ export function onboardingView(email: string): string {
        .lnk-row:last-child{margin-bottom:0}
        .lnk-sel{position:relative;flex:0 0 185px}
        .lnk-sel select{width:100%;appearance:none;-webkit-appearance:none;background:#fff;border:1px solid #d9d9d9;border-radius:12px;padding:14px 36px 14px 16px;font-size:16px;color:#111;cursor:pointer;font-weight:500}
-       .lnk-sel select:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .lnk-sel select:focus{outline:none;border-color:#000;box-shadow:0 0 0 1px #000}
        .lnk-chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#666}
        .lnk-inp{flex:1;display:flex;align-items:center;border:1px solid #d9d9d9;border-radius:12px;padding:0 14px;background:#fff;min-width:0}
-       .lnk-inp:focus-within{border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .lnk-inp:focus-within{border-color:#000;box-shadow:0 0 0 1px #000}
        .lnk-pre{color:#444;font-size:16px;white-space:nowrap}
        .lnk-inp input{border:none;outline:none;flex:1;padding:14px 6px;font-size:16px;color:#111;min-width:0;background:transparent}
        .lnk-inp input::placeholder{color:#9a9a9a}
-       .lnk-del{flex:0 0 auto;background:none;border:none;cursor:pointer;color:#9aa0c2;padding:6px;line-height:0}
-       .lnk-del:hover{color:#e0556b}
-       .lnk-add{display:inline-block;color:#14532d;font-weight:700;font-size:16px;letter-spacing:.02em;text-decoration:none;cursor:pointer}
+       .lnk-del{flex:0 0 auto;background:none;border:none;cursor:pointer;color:#9a9a9a;padding:6px;line-height:0}
+       .lnk-del:hover{color:#000}
+       .lnk-add{display:inline-block;color:#000;font-weight:700;font-size:16px;letter-spacing:.02em;text-decoration:none;cursor:pointer}
        .lnk-foot{display:flex;justify-content:flex-end;align-items:center;gap:24px;margin-top:22px}
-       .lnk-cancel{color:#14532d;font-weight:700;font-size:16px;letter-spacing:.04em;text-decoration:none;cursor:pointer;text-transform:uppercase}
+       .lnk-cancel{color:#000;font-weight:700;font-size:16px;letter-spacing:.04em;text-decoration:none;cursor:pointer;text-transform:uppercase}
        .lnk-save{background:#e6e6e6;color:#9a9a9a;border:none;border-radius:10px;padding:12px 26px;font-size:16px;font-weight:700;letter-spacing:.04em;cursor:not-allowed;text-transform:uppercase}
-       .lnk-save.on{background:#14532d;color:#fff;cursor:pointer}
+       .lnk-save.on{background:#000;color:#fff;cursor:pointer}
 
        /* How do you want to write your pitch? modal */
        .pch-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;z-index:200;padding:40px 20px;overflow:auto}
@@ -386,14 +386,14 @@ export function onboardingView(email: string): string {
        .pch-h{font-size:30px;font-weight:700;color:#111;margin-bottom:28px;letter-spacing:-.01em}
        .pch-cards{display:flex;gap:16px;margin-bottom:26px}
        .pch-card{position:relative;flex:1;border:1px solid #d9d9d9;border-radius:14px;padding:16px 18px;cursor:pointer;background:#fff}
-       .pch-card.sel{background:linear-gradient(135deg,#0c3522,#14532d);border-color:#14532d}
-       .pch-card-ico{width:34px;height:34px;border-radius:50%;background:#f1f1f1;display:flex;align-items:center;justify-content:center;color:#14532d;margin-bottom:10px}
-       .pch-card.sel .pch-card-ico{background:#fff;color:#14532d}
+       .pch-card.sel{background:linear-gradient(135deg,#1a1a1a,#000);border-color:#000}
+       .pch-card-ico{width:34px;height:34px;border-radius:50%;background:#f1f1f1;display:flex;align-items:center;justify-content:center;color:#000;margin-bottom:10px}
+       .pch-card.sel .pch-card-ico{background:#fff;color:#000}
        .pch-card-t{font-size:20px;font-weight:700;color:#111;letter-spacing:-.01em}
        .pch-card.sel .pch-card-t{color:#fff}
        .pch-card-d{font-size:14px;color:#777;margin-top:2px}
-       .pch-card.sel .pch-card-d{color:#cfe3d8}
-       .pch-card-mark{position:absolute;top:14px;right:14px;width:22px;height:22px;border-radius:50%;background:#fff;color:#14532d;display:none;align-items:center;justify-content:center}
+       .pch-card.sel .pch-card-d{color:#cfcfcf}
+       .pch-card-mark{position:absolute;top:14px;right:14px;width:22px;height:22px;border-radius:50%;background:#fff;color:#000;display:none;align-items:center;justify-content:center}
        .pch-card-radio{position:absolute;top:14px;right:14px;width:21px;height:21px;border-radius:50%;border:2px solid #d3d3d3;box-sizing:border-box}
        .pch-card.sel .pch-card-mark{display:flex}
        .pch-card.sel .pch-card-radio{display:none}
@@ -401,25 +401,25 @@ export function onboardingView(email: string): string {
        .pch-sub{font-size:15px;color:#555;margin:-4px 0 10px}
        .pf-dd{position:relative;margin-bottom:12px}
        .pf-dd-btn{width:100%;display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #d9d9d9;border-radius:12px;padding:16px 18px;font-size:17px;color:#111;cursor:pointer}
-       .pf-dd.open .pf-dd-btn{border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .pf-dd.open .pf-dd-btn{border-color:#000;box-shadow:0 0 0 1px #000}
        .pf-dd-right{display:flex;align-items:center;gap:14px;color:#444}
-       .pf-rec{background:#14532d;color:#fff;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;letter-spacing:.04em}
+       .pf-rec{background:#000;color:#fff;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;letter-spacing:.04em}
        .pf-dd.open .pf-chev{transform:rotate(180deg)}
        .pf-dd-menu{position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid #e0e0e0;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.16);z-index:5;overflow:hidden}
        .pf-opt{padding:14px 18px;cursor:pointer}
-       .pf-opt:hover,.pf-opt.sel{background:#eef1f0}
+       .pf-opt:hover,.pf-opt.sel{background:#f0f0f0}
        .pf-opt-t{font-size:17px;font-weight:700;color:#111}
        .pf-opt-d{font-size:14px;color:#777;margin-top:2px}
        .pch-inp{display:flex;align-items:center;border:1px solid #d9d9d9;border-radius:12px;padding:0 16px;background:#fff;margin-bottom:6px}
-       .pch-inp:focus-within{border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .pch-inp:focus-within{border-color:#000;box-shadow:0 0 0 1px #000}
        .pch-pre{color:#9a9a9a;font-size:16px}
        .pch-inp input{border:none;outline:none;flex:1;padding:15px 8px;font-size:16px;color:#111;background:transparent;min-width:0}
        .pch-inp input::placeholder{color:#bdbdbd}
        .pch-ta{width:100%;box-sizing:border-box;border:1px solid #d9d9d9;border-radius:12px;padding:14px 16px;font-size:16px;color:#111;min-height:110px;resize:vertical;font-family:inherit}
-       .pch-ta:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .pch-ta:focus{outline:none;border-color:#000;box-shadow:0 0 0 1px #000}
        .pch-foot{display:flex;justify-content:space-between;align-items:center;margin-top:34px}
-       .pch-back{background:#fff;border:1px solid #cfcfcf;border-radius:12px;padding:14px 30px;font-size:15px;font-weight:700;letter-spacing:.06em;color:#14532d;cursor:pointer;text-transform:uppercase}
-       .pch-gen{background:#14532d;border:none;border-radius:12px;padding:15px 32px;font-size:15px;font-weight:700;letter-spacing:.06em;color:#fff;cursor:pointer;text-transform:uppercase}
+       .pch-back{background:#fff;border:1px solid #cfcfcf;border-radius:12px;padding:14px 30px;font-size:15px;font-weight:700;letter-spacing:.06em;color:#000;cursor:pointer;text-transform:uppercase}
+       .pch-gen{background:#000;border:none;border-radius:12px;padding:15px 32px;font-size:15px;font-weight:700;letter-spacing:.06em;color:#fff;cursor:pointer;text-transform:uppercase}
 
        /* Modify your template modal */
        .tpl-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;z-index:210;padding:40px 20px;overflow:auto}
@@ -428,38 +428,38 @@ export function onboardingView(email: string): string {
        .tpl-h{font-size:30px;font-weight:700;color:#111;margin-bottom:22px;letter-spacing:-.01em}
        .tpl-sel{position:relative;display:inline-block;margin-bottom:6px}
        .tpl-folder{appearance:none;-webkit-appearance:none;background:#fff;border:1px solid #d9d9d9;border-radius:10px;padding:12px 42px 12px 16px;font-size:16px;color:#111;cursor:pointer;min-width:240px}
-       .tpl-folder:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .tpl-folder:focus{outline:none;border-color:#000;box-shadow:0 0 0 1px #000}
        .tpl-chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#666}
        .tpl-lbl{display:block;font-size:17px;font-weight:700;color:#111;margin:18px 0 8px}
        .tpl-lbl .req{color:#111}
        .tpl-inp{width:100%;box-sizing:border-box;border:1px solid #d9d9d9;border-radius:12px;padding:15px 16px;font-size:16px;color:#111}
-       .tpl-inp:focus{outline:none;border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .tpl-inp:focus{outline:none;border-color:#000;box-shadow:0 0 0 1px #000}
        .tpl-field{border:1px solid #d9d9d9;border-radius:12px;overflow:hidden}
        .tpl-toolbar{display:flex;align-items:center;gap:4px;background:#fff;padding:10px 12px;border-bottom:1px solid #eee}
        .tpl-tb{background:none;border:none;cursor:pointer;color:#222;padding:6px 9px;border-radius:6px;font-size:16px;display:flex;align-items:center}
        .tpl-tb:hover{background:#f0f0f0}
        .tpl-tags{background:#f3f3f3;padding:11px 16px;font-size:15px;color:#333;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-       .tpl-tag{background:#fff;border:1px solid #c5bdf0;color:#6b5fd0;border-radius:999px;padding:4px 12px;font-size:14px;cursor:pointer}
+       .tpl-tag{background:#fff;border:1px solid #d9d9d9;color:#000;border-radius:999px;padding:4px 12px;font-size:14px;cursor:pointer}
        .tpl-subj,.tpl-area{width:100%;box-sizing:border-box;border:none;outline:none;padding:15px 16px;font-size:16px;color:#111;font-family:inherit;background:transparent}
        .tpl-area{min-height:150px;resize:vertical;display:block}
        .tpl-foot{display:flex;justify-content:center;gap:18px;margin-top:28px}
-       .tpl-back{background:#f1f1f1;border:none;border-radius:12px;padding:14px 26px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#14532d;cursor:pointer;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px}
-       .tpl-savenew{background:#fff;border:1px solid #14532d;border-radius:12px;padding:14px 26px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#14532d;cursor:pointer;text-transform:uppercase}
-       .tpl-save{background:#14532d;border:none;border-radius:12px;padding:14px 30px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#fff;cursor:pointer;text-transform:uppercase}
+       .tpl-back{background:#f1f1f1;border:none;border-radius:12px;padding:14px 26px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#000;cursor:pointer;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px}
+       .tpl-savenew{background:#fff;border:1px solid #000;border-radius:12px;padding:14px 26px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#000;cursor:pointer;text-transform:uppercase}
+       .tpl-save{background:#000;border:none;border-radius:12px;padding:14px 30px;font-size:15px;font-weight:700;letter-spacing:.04em;color:#fff;cursor:pointer;text-transform:uppercase}
        .tpl-save:disabled,.tpl-savenew:disabled{opacity:.55;cursor:default}
        .tpl-type{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px}
        .tpl-type-card{border:1px solid #d9d9d9;border-radius:14px;padding:20px 22px;cursor:pointer}
-       .tpl-type-card.sel{border-color:#14532d;box-shadow:0 0 0 1px #14532d}
+       .tpl-type-card.sel{border-color:#000;box-shadow:0 0 0 1px #000}
        .tpl-type-t{font-size:19px;font-weight:700;color:#111}
        .tpl-type-d{font-size:14px;color:#777;margin-top:6px;line-height:1.4}
        .tpl-err{margin-top:14px;background:#fdecec;border:1px solid #f3b4b4;color:#a12626;border-radius:10px;padding:12px 16px;font-size:14px;font-weight:600;text-align:center}
 
        /* onboarding step states (tick-off + sequential lock) */
-       .ob-done{background:#fff;border:1px solid #cfe0d6}
+       .ob-done{background:#fff;border:1px solid #d4d4d4}
        .ob-ico>span{display:none;align-items:center;justify-content:center}
        .ob-active .ob-ico{background:#efefef;color:#000}
        .ob-active .ico-step{display:flex}
-       .ob-done .ob-ico{background:#14532d;color:#fff}
+       .ob-done .ob-ico{background:#000;color:#fff}
        .ob-done .ico-done{display:flex}
        .ob-locked .ob-ico{background:#ececec;color:#aaa}
        .ob-locked .ico-lock{display:flex}
@@ -547,7 +547,7 @@ export function onboardingView(email: string): string {
            var cfg=CFG[kind];
            var data={mode:chosenMode(),about:document.querySelector('#ddAbout .pf-dd-val').textContent,aboutUrl:(document.getElementById('aboutUrl')||{}).value,aboutText:(document.getElementById('aboutText')||{}).value,work:document.querySelector('#ddWork .pf-dd-val').textContent,workUrl:(document.getElementById('workUrl')||{}).value};
            if(data.mode!=='ai'){close();if(window.__openTemplate)window.__openTemplate(null,kind);return;}
-           // Bento writes it: ask the server (GPT-5.4-mini + pitch guide) for a draft, then open the editor prefilled.
+           // Lepton writes it: ask the server (GPT-5.4-mini + pitch guide) for a draft, then open the editor prefilled.
            genBtn.disabled=true;var label=genBtn.textContent;genBtn.textContent='GENERATING…';
            fetch(cfg.ep,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)})
              .then(function(r){return r.json();})
@@ -576,7 +576,7 @@ export function onboardingView(email: string): string {
          window.__openTemplate=function(prefill,kind){
            clearErr();currentId=null;
            setType(kind==='followup'?'followup':'outreach');
-           var name=document.getElementById('tplName');if(name)name.value='';
+           var name=document.getElementById('tplName');if(name)name.value=(prefill&&prefill.name)||(kind==='followup'?'Follow-Up Template':'Outreach Template');
            var s=document.getElementById('tplSubject');if(s)s.value=(prefill&&prefill.subject)||'';
            var b=document.getElementById('tplBody');if(b)b.value=(prefill&&prefill.body)||'';
            bd.style.display='flex';
