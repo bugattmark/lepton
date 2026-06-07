@@ -38,7 +38,7 @@ export interface UpsertResult {
 // non-null value when an incoming field is null, so a thinner later source never wipes richer
 // data. tenantId records who added each brand (provenance); on conflict the original adder is
 // kept. Dedupe is global on name, so two tenants seeding the same brand merge into one row.
-export function upsertBrands(tenantId: string, brands: BrandInput[]): UpsertResult {
+export function upsertBrands(tenantId: string | null, brands: BrandInput[]): UpsertResult {
   const now = Date.now()
   const res: UpsertResult = { inserted: 0, updated: 0 }
 

@@ -10,6 +10,7 @@ process.env.DB_PATH = join(tmpdir(), `lepton-seed-test-${process.pid}.db`)
 
 // Dynamic import AFTER setting DB_PATH (static imports hoist and would open the real DB first).
 const { db, seedRateCards, seedPricingConfig } = await import('../src/db.ts')
+const { brandCount, categoryFacets } = await import('../src/brands.ts')
 
 test('seedRateCards is idempotent and seeds the spec GBP bands', () => {
   // db.ts already seeded once at import; re-run to prove no duplication.
@@ -55,4 +56,13 @@ test('seedPricingConfig seeds every default key and round-trips JSON', () => {
     (db.prepare("SELECT value_json FROM pricing_config WHERE key='guarantee'").get() as { value_json: string }).value_json,
   )
   assert.equal(guarantee.threshold, 1000)
+})
+
+test('starter brands seed at boot — catalog floor + sector vocabulary', () => {
+  // db.ts runs seedStarterBrands() at import (boot), so a fresh DB self-populates.
+  assert.ok(brandCount() >= 74, `expected >=74 starter brands, got ${brandCount()}`)
+  const facets = categoryFacets().map((c) => c.name)
+  for (const cat of ['Fashion', 'Beauty', 'Skincare', 'Fitness', 'Supplements', 'Equestrian']) {
+    assert.ok(facets.includes(cat), `sector vocabulary missing ${cat}`)
+  }
 })
