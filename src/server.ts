@@ -20,7 +20,7 @@ import * as attio from './attio.ts'
 import * as ig from './instagram.ts'
 import * as camp from './campaigns.ts'
 import * as pol from './policy.ts'
-import { startCampaign, pauseCampaign, campaignAccountIds } from './engine.ts'
+import { startCampaign, pauseCampaign, campaignAccountIds, fireFirstNow } from './engine.ts'
 import { render } from './engine.ts'
 import { parseSequence, fallbackSequence, asSend, firstNode, type Sequence } from './sequence.ts'
 import { aiAvailable } from './ai.ts'
@@ -1133,7 +1133,7 @@ app.get('/api/campaigns/:id/preview', apiAuth, (c) => {
   return c.json({ ok: true, message: send?.message ?? '', samples, hasLeads: leads.length > 0 })
 })
 
-app.post('/api/campaigns/:id/start', apiAuth, (c) => {
+app.post('/api/campaigns/:id/start', apiAuth, async (c) => {
   const tid = c.get('tenantId')
   const id = Number(c.req.param('id'))
   const campaign = camp.getCampaign(tid, id)
@@ -1144,7 +1144,8 @@ app.post('/api/campaigns/:id/start', apiAuth, (c) => {
     return c.json({ ok: false, error: 'none of the selected numbers are connected' }, 400)
   try {
     startCampaign(tid, id)
-    return c.json({ ok: true })
+    const immediate = await fireFirstNow(tid, id) // fire one send right now; rest paced by the runner
+    return c.json({ ok: true, immediate })
   } catch (e) {
     return c.json({ ok: false, error: (e as Error).message }, 400)
   }

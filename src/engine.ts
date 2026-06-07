@@ -390,12 +390,51 @@ export function startCampaign(tenantId: string, campaignId: number): void {
   if (!c || c.tenant_id !== tenantId) throw new Error('not found')
   const accts = campaignAccountIds(campaignId)
   if (!accts.length) throw new Error('campaign has no WhatsApp number selected')
+  // Per product: every start re-sends. Reset all enrolled leads back to unsent so a Turn on always
+  // fires fresh (no "already sent → nothing happens"). Opt-outs are left untouched.
+  db.prepare(
+    `UPDATE campaign_contacts
+       SET status = 'pending', node_id = NULL, next_due_at = NULL, sent_at = NULL, wamid = NULL, error = NULL
+     WHERE campaign_id = ?`,
+  ).run(campaignId)
   db.prepare(
     `UPDATE campaigns SET status = 'running', started_at = COALESCE(started_at, ?) WHERE id = ? AND tenant_id = ?`,
   ).run(Date.now(), campaignId, tenantId)
   lastFetch.set(campaignId, Date.now())
   fetchInto(tenantId, campaignId) // pull an initial batch immediately
   for (const a of accts) kick(a)
+}
+
+// Immediately send to the FIRST pending lead, bypassing the send window / daily cap / gap pacing.
+// This is what makes "Turn on" produce an instant first message instead of waiting on the runner.
+// Throws on failure so the UI shows the real reason (no leads, not connected, send error).
+export async function fireFirstNow(tenantId: string, campaignId: number): Promise<{ sent: boolean; reason?: string }> {
+  const camp = campaignById(campaignId)
+  if (!camp || camp.tenant_id !== tenantId) throw new Error('campaign not found')
+  const accts = campaignAccountIds(campaignId)
+  const connected = accts.find((a) => accounts.isConnected(a))
+  if (!connected) throw new Error('no selected WhatsApp number is connected')
+
+  const lead = db
+    .prepare(
+      `SELECT cc.id ccId, c.id contactId, c.phone phone, c.name name, c.vars vars,
+              c.instagram_handle instagram_handle, c.event_link event_link, c.category category,
+              cc.status status, cc.node_id node_id, cc.replied_at replied_at, cc.account_id account_id
+       FROM campaign_contacts cc JOIN contacts c ON c.id = cc.contact_id
+       WHERE cc.campaign_id = ? AND c.opted_out = 0 AND cc.status = 'pending'
+       ORDER BY cc.id LIMIT 1`,
+    )
+    .get(campaignId) as (Lead & { account_id: string | null }) | undefined
+  if (!lead) return { sent: false, reason: 'no pending leads' }
+
+  // use the lead's assigned number if it's connected, else the first connected one
+  const accountId = lead.account_id && accounts.isConnected(lead.account_id) ? lead.account_id : connected
+  db.prepare('UPDATE campaign_contacts SET account_id = ? WHERE id = ?').run(accountId, lead.ccId)
+  ;(lead as LeadWithAccount).account_id = accountId
+
+  const result = await stepLead(camp, sequenceOf(camp), lead as LeadWithAccount)
+  if (result === 'disconnected') throw new Error('account disconnected mid-send')
+  return { sent: result != null }
 }
 
 export function pauseCampaign(tenantId: string, campaignId: number): void {
